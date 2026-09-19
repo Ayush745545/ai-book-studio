@@ -1,0 +1,207 @@
+// Prisma schema for AI Book Studio
+// PostgreSQL (Neon) — run `npx prisma db push` after setting DATABASE_URL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Enums ───────────────────────────
+
+enum Role {
+  AUTHOR
+  READER
+  ADMIN
+}
+
+enum BookStatus {
+  DRAFT
+  WRITING
+  EDITING
+  DESIGNING
+  READY
+  PUBLISHED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PRINTING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum CoverSource {
+  AI
+  UPLOAD
+}
+
+enum CoverSide {
+  FRONT
+  BACK
+}
+
+enum OrderType {
+  PHYSICAL
+  DIGITAL
+}
+
+// ─────────────────────────── Models ──────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  password  String? // bcrypt hash — set automatically on first sign-in
+  role      Role     @default(AUTHOR)
+  createdAt DateTime @default(now())
+
+  books  Book[]
+  orders Order[]
+}
+
+model Book {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  coverUrl     String?
+  backCoverUrl String?
+  status      BookStatus @default(DRAFT)
+  genre       String?
+  language    String     @default("English")
+  isPublished Boolean    @default(false)
+  price       Float      @default(0)
+  digitalPrice Float     @default(0)
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  originalBookId String?
+  originalBook Book? @relation("BookEditions", fields: [originalBookId], references: [id])
+  editions Book[] @relation("BookEditions")
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  chapters Chapter[]
+  orders   Order[]
+  coverImages CoverImage[]
+  printSettings PrintSettings?
+}
+
+model PrintSettings {
+  id          String   @id @default(cuid())
+  bookId      String   @unique
+  book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  pageSize    String   @default("6x9")
+  margin      String   @default("0.5in")
+  font        String   @default("serif")
+  fontSize    Int      @default(11)
+  lineSpacing Float    @default(1.5)
+  updatedAt   DateTime @updatedAt
+}
+
+model CoverImage {
+  id        String   @id @default(cuid())
+  bookId    String
+  url       String
+  source    CoverSource
+  side      CoverSide
+  createdAt DateTime @default(now())
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([bookId])
+}
+
+enum ChapterType {
+  FRONT_MATTER
+  CHAPTER
+  BACK_MATTER
+}
+
+model Chapter {
+  id        String      @id @default(cuid())
+  title     String
+  content   String      @default("")
+  order     Int         @default(0)
+  type      ChapterType @default(CHAPTER)
+  wordCount Int         @default(0)
+  bookId    String
+  book      Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  versions Version[]
+}
+
+model Version {
+  id        String   @id @default(cuid())
+  content   String
+  chapterId String
+  chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+enum AiEditAction {
+  PROOFREAD
+  REWRITE
+  TONE_FRIENDLY
+  TONE_PROFESSIONAL
+  TONE_CONCISE
+  SUMMARY
+  KEY_POINTS
+  LIST
+  TABLE
+  COMPOSE
+  CUSTOM
+  CHAT
+}
+
+model AiEdit {
+  id         String        @id @default(cuid())
+  userId     String?
+  bookId     String?
+  chapterId  String?
+  action     AiEditAction
+  prompt     String?
+  beforeText String        @db.Text
+  afterText  String        @db.Text
+  provider   String        @default("ollama")
+  model      String        @default("llama3")
+  tokensUsed Int           @default(0)
+  accepted   Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+
+  user       User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  book       Book?         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  chapter    Chapter?      @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([bookId])
+  @@index([chapterId])
+  @@index([createdAt])
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId       String
+  book         Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  quantity     Int         @default(1)
+  amount       Float
+  status       OrderStatus @default(PENDING)
+  type         OrderType   @default(PHYSICAL)
+  shippingAddr String? // JSON string { name, street, city, state, zip, country }
+  stripeId     String? // Stripe checkout session id
+  printOrderId String? // Lulu print job id
+  createdAt    DateTime    @default(now())
+
+  @@index([userId])
+  @@index([bookId])
+}
