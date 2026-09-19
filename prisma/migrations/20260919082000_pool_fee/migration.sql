@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Contest" ADD COLUMN     "entryFee" DOUBLE PRECISION NOT NULL DEFAULT 0;
