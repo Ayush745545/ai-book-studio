@@ -48,39 +48,6 @@ export default async function LandingPage() {
               Book a demo
             </Link>
           </div>
-
-          {/* Live Community Stats */}
-          <div className="mt-20 pt-10 border-t border-zinc-100">
-            <p className="text-sm font-medium text-zinc-500 mb-8 uppercase tracking-widest">
-              Join the studio publishing books this week
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
-              {[
-                { label: "Authors online", value: "2,847", delta: "+312 today", live: true },
-                { label: "Books drafted", value: "14,902", delta: "+1,284 wk", live: false },
-                { label: "Copies sold", value: "$842k", delta: "+12.4% MoM", live: false },
-                { label: "Participants pool", value: "63,418", delta: "+4,971 wk", live: true },
-              ].map((s, i) => (
-                <div key={i} className="text-left md:text-center">
-                  <div className="flex items-center gap-2 md:justify-center mb-2">
-                    {s.live && (
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                      </span>
-                    )}
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{s.label}</p>
-                  </div>
-                  <p className="text-3xl font-bold tracking-tight text-zinc-900 leading-none">
-                    {s.value}
-                  </p>
-                  <p className="mt-1.5 text-xs font-semibold text-emerald-600">
-                    {s.delta}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </section>
 
@@ -88,16 +55,12 @@ export default async function LandingPage() {
       <TemplateGrid />
 
       {/* ── How it works ─────────────────────────────────────────────── */}
-      <section className="section-reveal relative border-y border-white/5 overflow-hidden">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-20 left-1/2 h-[400px] w-[400px] -translate-x-1/2 rounded-full bg-indigo-500/10 blur-[100px]" />
-          <div className="absolute -bottom-32 -right-10 h-[400px] w-[400px] rounded-full bg-emerald-500/10 blur-[120px]" />
-        </div>
-        <div className="relative mx-auto max-w-5xl px-4 py-20 sm:px-6">
-          <h2 className="text-center text-2xl font-bold text-white sm:text-4xl mb-3 tracking-tight">
+      <section className="section-reveal relative bg-white py-20 sm:py-28">
+        <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
+          <h2 className="text-center text-2xl font-bold text-zinc-900 sm:text-4xl mb-3 tracking-tight">
             From idea to printed book
           </h2>
-          <p className="text-center text-sm text-zinc-400 mb-10 max-w-xl mx-auto">
+          <p className="text-center text-sm text-zinc-600 mb-10 max-w-xl mx-auto">
             Three steps. Zero publishers. Your book, your terms.
           </p>
 
@@ -111,44 +74,29 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      <section className="section-reveal relative bg-white py-12 sm:py-20">
+        <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
+          <h2 className="text-4xl sm:text-6xl font-semibold tracking-tight text-zinc-900 mb-6 leading-[1.05]">
+            Your first chapter is one prompt away
+          </h2>
 
-      <section className="section-reveal relative mx-auto max-w-6xl px-4 sm:px-6 py-12 sm:py-20">
-        <div className="relative overflow-hidden rounded-[2.5rem] px-8 py-16 sm:px-16 sm:py-24 bg-gradient-to-br from-[#2e379c] via-[#4f46e5] to-[#7c3aed] shadow-[0_40px_80px_-20px_rgba(99,102,241,0.5)]">
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -top-40 -right-40 h-[500px] w-[500px] rounded-full bg-white/10 blur-3xl" />
-            <div className="absolute -bottom-40 -left-40 h-[500px] w-[500px] rounded-full bg-fuchsia-400/20 blur-3xl" />
-            <div
-              className="absolute inset-0 opacity-30 mix-blend-overlay"
-              style={{
-                backgroundImage:
-                  'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)',
-                backgroundSize: '28px 28px',
-              }}
-            />
+          <p className="text-emerald-600 text-sm font-semibold mb-6 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1.5 border border-emerald-200">
+            ✓ Available on AI Book Studio & Export to PDF
+          </p>
+
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm text-zinc-600 font-medium mb-12 justify-center">
+            <span className="flex items-center gap-2"><span className="text-emerald-500 text-lg">✓</span> 100% free to start</span>
+            <span className="flex items-center gap-2"><span className="text-emerald-500 text-lg">✓</span> Lulu print-on-demand</span>
+            <span className="flex items-center gap-2"><span className="text-emerald-500 text-lg">✓</span> Stripe payments</span>
           </div>
-          <div className="relative max-w-3xl">
-            <h2 className="text-4xl sm:text-6xl font-semibold tracking-tight text-white mb-6 leading-[1.05]">
-              Your first chapter is one prompt away
-            </h2>
 
-            <p className="text-emerald-200/90 text-sm font-semibold mb-6 inline-flex items-center gap-2 rounded-full bg-emerald-400/15 px-4 py-1.5 border border-emerald-300/20">
-              ✓ Available on AI Book Studio &amp; Export to PDF
-            </p>
-
-            <div className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm text-white/90 font-medium mb-12">
-              <span className="flex items-center gap-2"><span className="text-emerald-300 text-lg">✓</span> 100% free to start</span>
-              <span className="flex items-center gap-2"><span className="text-emerald-300 text-lg">✓</span> Lulu print-on-demand</span>
-              <span className="flex items-center gap-2"><span className="text-emerald-300 text-lg">✓</span> Stripe payments</span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-4">
-              <Link href="/dashboard" className="inline-flex h-14 items-center justify-center rounded-full bg-white px-9 text-base font-bold text-indigo-700 transition hover:bg-zinc-50 active:scale-95 shadow-2xl shadow-black/20">
-                Create a book with AI
-              </Link>
-              <Link href="/login" className="inline-flex h-14 items-center justify-center rounded-full border border-white/30 bg-white/10 backdrop-blur px-9 text-base font-semibold text-white transition hover:bg-white/20 active:scale-95">
-                Sign in <ArrowRight className="h-4 w-4 ml-2" />
-              </Link>
-            </div>
+          <div className="flex flex-wrap items-center gap-4 justify-center">
+            <Link href="/dashboard" className="inline-flex h-14 items-center justify-center rounded-full bg-indigo-600 px-9 text-base font-bold text-white transition hover:bg-indigo-700 active:scale-95 shadow-xl shadow-indigo-500/30">
+              Create a book with AI
+            </Link>
+            <Link href="/login" className="inline-flex h-14 items-center justify-center rounded-full border border-indigo-200 bg-white px-9 text-base font-semibold text-indigo-600 transition hover:border-indigo-300 hover:bg-indigo-50 active:scale-95">
+              Sign in <ArrowRight className="h-4 w-4 ml-2" />
+            </Link>
           </div>
         </div>
       </section>
