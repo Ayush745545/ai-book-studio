@@ -1,30 +1,10 @@
 export function TemplateGrid() {
   const templates = [
-    { 
-      title: "Sci-Fi Thriller", 
-      imageSrc: "/covers/ChatGPT Image Sep 20, 2026, 04_22_34 PM-Photoroom.png",
-      prompt: "A gripping sci-fi thriller about a rogue AI..."
-    },
-    { 
-      title: "Romance Novel", 
-      imageSrc: "/covers/love.png",
-      prompt: "A heartwarming enemies-to-lovers romance set in a cozy bookshop..."
-    },
-    { 
-      title: "Fantasy Epic", 
-      imageSrc: "/covers/FantasyEpic.png",
-      prompt: "An epic quest across warring kingdoms with ancient magic and dragons..."
-    },
-    { 
-      title: "Mystery Detective", 
-      imageSrc: "/covers/MysteryDetective.png",
-      prompt: "A gritty noir detective hunting a serial killer through rain-slicked streets..."
-    },
-    { 
-      title: "Self-Help Guide", 
-      imageSrc: "/covers/Self-Help-Guide.png",
-      prompt: "Practical habits to transform your mindset and unlock your potential..."
-    },
+    { title: "Sci-Fi Thriller", color: "bg-blue-500", img1: "🛸", img2: "🌌" },
+    { title: "Romance Novel", color: "bg-rose-400", img1: "❤️", img2: "📖" },
+    { title: "Fantasy Epic", color: "bg-amber-600", img1: "🐉", img2: "🏰" },
+    { title: "Mystery Detective", color: "bg-zinc-700", img1: "🕵️", img2: "🔍" },
+    { title: "Self-Help Guide", color: "bg-emerald-500", img1: "🌱", img2: "💡" },
   ];
 
   return (
@@ -47,20 +27,23 @@ export function TemplateGrid() {
           {templates.map((t, i) => (
             <div 
               key={i}
-              className={`card-fx relative rounded-3xl p-6 bg-white shadow-xl flex items-center justify-between gap-6`}
+              className={`card-fx relative overflow-hidden rounded-3xl p-6 ${t.color} text-white shadow-xl flex items-center justify-between gap-6`}
               style={{ width: i % 2 === 0 ? '45%' : '50%', minWidth: '300px', height: '220px', marginTop: i % 2 !== 0 ? '40px' : '0' }}
             >
-              <div className="relative z-10 flex items-center justify-center h-full w-full pr-12">
-                <img 
-                  src={t.imageSrc} 
-                  alt={t.title} 
-                  className="h-[200px] w-auto object-contain drop-shadow-2xl"
-                />
-                {/* Prompt card */}
-                <div className="absolute top-4 right-0 z-20 bg-white/90 backdrop-blur-md rounded-xl border border-white/30 shadow-lg p-3 min-w-[180px] max-w-[220px]">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Prompt</span>
-                  <p className="text-xs text-zinc-800 mt-1 leading-tight">"{t.prompt}"</p>
-                </div>
+              <div className="relative z-10 flex flex-col items-center justify-center w-24 h-28 bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-lg rotate-[-5deg]">
+                <span className="text-4xl">{t.img1}</span>
+                <span className="text-[10px] mt-2 font-bold uppercase tracking-wider opacity-80">Prompt</span>
+              </div>
+              
+              <div className="relative z-10 text-white/60">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </div>
+
+              <div className="relative z-10 flex flex-col items-center justify-center w-32 h-40 bg-white shadow-2xl rounded-xl border border-zinc-200 rotate-[3deg]">
+                <span className="text-6xl">{t.img2}</span>
+                <span className="text-xs mt-3 font-bold text-zinc-800 text-center leading-tight px-2">{t.title}</span>
               </div>
             </div>
           ))}
