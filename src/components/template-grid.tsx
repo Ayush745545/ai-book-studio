@@ -3,8 +3,8 @@ export function TemplateGrid() {
     { title: "Sci-Fi Thriller", color: "bg-blue-500", img1: "🛸", img2: "🌌" },
     { title: "Romance Novel", color: "bg-rose-400", img1: "❤️", img2: "📖" },
     { title: "Fantasy Epic", color: "bg-amber-600", img1: "🐉", img2: "🏰" },
-    { title: "Mystery Detective", color: "bg-zinc-700", img1: "🕵️", img2: "🔍" },
-    { title: "Self-Help Guide", color: "bg-emerald-500", img1: "🌱", img2: "💡" },
+    { title: "Mystery Detective", color: "bg-zinc-700", img1: "🕵️", img2: "🔍", cover: "/covers/MysteryDetective.png" },
+    { title: "Self-Help Guide", color: "bg-emerald-500", img1: "🌱", img2: "💡", cover: "/covers/Self-Help-Guide.png" },
   ];
 
   return (
@@ -41,10 +41,21 @@ export function TemplateGrid() {
                 </svg>
               </div>
 
-              <div className="relative z-10 flex flex-col items-center justify-center w-32 h-40 bg-white shadow-2xl rounded-xl border border-zinc-200 rotate-[3deg]">
-                <span className="text-6xl">{t.img2}</span>
-                <span className="text-xs mt-3 font-bold text-zinc-800 text-center leading-tight px-2">{t.title}</span>
-              </div>
+              {t.cover ? (
+                <div className="relative z-10 flex flex-col items-center justify-center w-48 h-64 rotate-[3deg]">
+                  <img 
+                    src={t.cover} 
+                    alt={t.title} 
+                    className="w-full h-full object-cover rounded-xl shadow-2xl border border-zinc-200"
+                  />
+                  <span className="text-sm mt-3 font-bold text-zinc-800 text-center leading-tight px-2 bg-white/90 rounded-lg">{t.title}</span>
+                </div>
+              ) : (
+                <div className="relative z-10 flex flex-col items-center justify-center w-32 h-40 bg-white shadow-2xl rounded-xl border border-zinc-200 rotate-[3deg]">
+                  <span className="text-6xl">{t.img2}</span>
+                  <span className="text-xs mt-3 font-bold text-zinc-800 text-center leading-tight px-2">{t.title}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
