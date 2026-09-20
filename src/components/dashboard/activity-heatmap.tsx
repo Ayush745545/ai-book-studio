@@ -47,19 +47,19 @@ function tierFor(value: number, mode: Range, max: number): number {
 }
 
 const TIER_BG = [
-  "bg-white/5 hover:bg-white/10",
-  "bg-indigo-500/25 hover:bg-indigo-500/40",
-  "bg-indigo-500/50 hover:bg-indigo-500/65",
-  "bg-indigo-400/80 hover:bg-indigo-400/95",
-  "bg-indigo-400 hover:bg-indigo-300",
+  "bg-zinc-100 hover:bg-zinc-200",
+  "bg-indigo-100 hover:bg-indigo-200",
+  "bg-indigo-200 hover:bg-indigo-300",
+  "bg-indigo-300 hover:bg-indigo-400",
+  "bg-indigo-400 hover:bg-indigo-500",
 ];
 
 const TIER_RING = [
-  "ring-1 ring-white/5",
-  "ring-1 ring-indigo-400/20",
-  "ring-1 ring-indigo-400/30",
-  "ring-1 ring-indigo-300/40",
-  "ring-1 ring-indigo-200/50",
+  "ring-1 ring-zinc-200",
+  "ring-1 ring-indigo-200",
+  "ring-1 ring-indigo-300",
+  "ring-1 ring-indigo-400",
+  "ring-1 ring-indigo-500",
 ];
 
 export function ActivityHeatmap({
@@ -177,23 +177,23 @@ export function ActivityHeatmap({
   const latestDate = grid[grid.length - 1][grid[0].length - 1];
 
   return (
-    <div className="card p-6">
+    <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm p-6">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-white">Writing activity</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-zinc-900">Writing activity</h2>
           <p className="mt-0.5 text-xs text-zinc-500">
             {activeDays.toLocaleString()} active days · {ymd(earliestDate)} → {ymd(latestDate)}
           </p>
         </div>
-        <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-0.5 text-xs font-medium">
+        <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 text-xs font-medium">
           {(["daily", "weekly", "cumulative"] as Range[]).map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
               className={`rounded-md px-3 py-1.5 capitalize transition ${
                 range === r
-                  ? "bg-white/10 text-white shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-indigo-100 text-indigo-700 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
               }`}
             >
               {r}
@@ -204,14 +204,14 @@ export function ActivityHeatmap({
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Total activity", value: totalActivity.toLocaleString(), accent: "text-indigo-300" },
-          { label: "Words written", value: totalWords.toLocaleString(), accent: "text-violet-300" },
-          { label: "Writing sessions", value: totalSessions.toLocaleString(), accent: "text-fuchsia-300" },
-          { label: "Books touched", value: booksCount.toLocaleString(), accent: "text-emerald-300" },
+          { label: "Total activity", value: totalActivity.toLocaleString(), accent: "text-indigo-600" },
+          { label: "Words written", value: totalWords.toLocaleString(), accent: "text-violet-600" },
+          { label: "Writing sessions", value: totalSessions.toLocaleString(), accent: "text-fuchsia-600" },
+          { label: "Books touched", value: booksCount.toLocaleString(), accent: "text-emerald-600" },
         ].map((s) => (
           <div
             key={s.label}
-            className="rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-3"
+            className="rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-3"
           >
             <p className={`text-xl font-bold tracking-tight ${s.accent}`}>{s.value}</p>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider text-zinc-500">
@@ -224,7 +224,7 @@ export function ActivityHeatmap({
       <div className="relative">
         {hover && (
           <div
-            className="pointer-events-none absolute z-20 rounded-lg border border-white/10 bg-zinc-900/95 px-3 py-2 text-xs text-white shadow-2xl backdrop-blur"
+            className="pointer-events-none absolute z-20 rounded-lg border border-zinc-200 bg-zinc-900/95 px-3 py-2 text-xs text-white shadow-2xl backdrop-blur"
             style={{
               left: Math.min(hover.x, grid.length * 16 - 10),
               top: Math.max(-64, hover.y - 64),
@@ -268,7 +268,7 @@ export function ActivityHeatmap({
 
             {Array.from({ length: DAYS }).map((_, di) => (
               <div key={di} className="contents">
-                <div className="flex h-3 items-center justify-end pr-1 text-[9px] font-medium uppercase tracking-wider text-zinc-600">
+                <div className="flex h-3 items-center justify-end pr-1 text-[9px] font-medium uppercase tracking-wider text-zinc-500">
                   {DAY_LABELS[di]}
                 </div>
                 {grid.map((col, ci) => {

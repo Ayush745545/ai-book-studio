@@ -17,9 +17,9 @@ const ToastContext = createContext<(message: string, type?: ToastType) => void>(
 export const useToast = () => useContext(ToastContext);
 
 const styles: Record<ToastType, string> = {
-  success: "border-emerald-400/30 bg-emerald-950/90 text-emerald-200",
-  error: "border-red-400/30 bg-red-950/90 text-red-200",
-  info: "border-indigo-400/30 bg-indigo-950/90 text-indigo-200",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  error: "border-red-200 bg-red-50 text-red-800",
+  info: "border-indigo-200 bg-indigo-50 text-indigo-800",
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {

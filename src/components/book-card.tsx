@@ -46,23 +46,23 @@ export function BookCard({ book, href, showStatus, showPrice, meta }: BookCardPr
   return (
     <Link
       href={href}
-      className="card card-fx group overflow-hidden"
+      className="group overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition hover:shadow-xl hover:-translate-y-1"
     >
-      <div className="aspect-[3/4] overflow-hidden border-b border-white/10">
+      <div className="aspect-[3/4] overflow-hidden border-b border-zinc-200">
         <div className="h-full w-full transition duration-300 group-hover:scale-[1.03]">
           <BookCover book={book} />
         </div>
       </div>
       <div className="space-y-1.5 p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="line-clamp-2 text-sm font-semibold text-white">{book.title}</h3>
+          <h3 className="line-clamp-2 text-sm font-semibold text-zinc-900">{book.title}</h3>
           {showStatus && <StatusBadge status={book.status} />}
         </div>
         <p className="text-xs text-zinc-500">
           {meta ?? (book.authorName ? `by ${book.authorName}` : book.genre ?? "—")}
         </p>
         {showPrice && (
-          <p className="pt-1 text-sm font-bold text-indigo-300">
+          <p className="pt-1 text-sm font-bold text-indigo-600">
             {formatPrice(unitPriceFor(book.price))}
           </p>
         )}

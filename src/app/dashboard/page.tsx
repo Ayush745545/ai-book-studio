@@ -63,120 +63,122 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   const booksTouched = new Set(activity.filter(a => a.books > 0).map(a => a.date)).size + authoredBooks.length;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <p className="text-sm text-zinc-500">
-          Welcome back, {session.user.name || session.user.email?.split("@")[0]}
-        </p>
-        <Link href="/books/new" className="btn-primary">
-          <Plus className="h-4 w-4" /> New Book
-        </Link>
-      </div>
+    <div className="min-h-screen bg-white">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <p className="text-sm text-zinc-500">
+            Welcome back, {session.user.name || session.user.email?.split("@")[0]}
+          </p>
+          <Link href="/books/new" className="btn-primary">
+            <Plus className="h-4 w-4" /> New Book
+          </Link>
+        </div>
 
-      <div className="mb-6 flex gap-4 border-b border-white/10 pb-2">
-        <Link
-          href="/dashboard?tab=authored"
-          className={`px-2 py-1 text-sm font-medium transition ${
-            tab === "authored" ? "text-indigo-400 border-b-2 border-indigo-400" : "text-zinc-500 hover:text-zinc-300"
-          }`}
-        >
-          My Authored Books
-        </Link>
-        <Link
-          href="/dashboard?tab=library"
-          className={`px-2 py-1 text-sm font-medium transition ${
-            tab === "library" ? "text-indigo-400 border-b-2 border-indigo-400" : "text-zinc-500 hover:text-zinc-300"
-          }`}
-        >
-          My Library
-        </Link>
-      </div>
+        <div className="mb-6 flex gap-4 border-b border-zinc-200 pb-2">
+          <Link
+            href="/dashboard?tab=authored"
+            className={`px-2 py-1 text-sm font-medium transition ${
+              tab === "authored" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-zinc-500 hover:text-zinc-700"
+            }`}
+          >
+            My Authored Books
+          </Link>
+          <Link
+            href="/dashboard?tab=library"
+            className={`px-2 py-1 text-sm font-medium transition ${
+              tab === "library" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-zinc-500 hover:text-zinc-700"
+            }`}
+          >
+            My Library
+          </Link>
+        </div>
 
-      {tab === "authored" && (
-        <>
-          <div className="mb-8">
-            <ActivityHeatmap
-              activity={activity}
-              totalWords={totalWords}
-              totalSessions={totalSessions}
-              booksCount={Math.min(authoredBooks.length, booksTouched)}
-            />
-          </div>
-
-          {serializedAuthored.length === 0 ? (
-            <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center">
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-indigo-300 ring-1 ring-indigo-400/30">
-                <Sparkles className="h-7 w-7" />
-              </span>
-              <div>
-                <h2 className="text-lg font-semibold text-white">Your studio is empty</h2>
-                <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-500">
-                  Give AI a genre and a few keywords — it will pitch you three book
-                  concepts to start from.
-                </p>
-              </div>
-              <Link href="/books/new" className="btn-primary mt-2">
-                <Plus className="h-4 w-4" /> Create your first book
-              </Link>
+        {tab === "authored" && (
+          <>
+            <div className="mb-8">
+              <ActivityHeatmap
+                activity={activity}
+                totalWords={totalWords}
+                totalSessions={totalSessions}
+                booksCount={Math.min(authoredBooks.length, booksTouched)}
+              />
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {serializedAuthored.map((book) => (
-                <div key={book.id} className="relative group">
-                  <BookCard
-                    book={book}
-                    href={`/books/${book.id}`}
-                    showStatus
-                    meta={`${book.chapterCount} ch · ${book.wordCount.toLocaleString()} words`}
-                  />
-                  <DeleteBookButton bookId={book.id} bookTitle={book.title} />
+
+            {serializedAuthored.length === 0 ? (
+              <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center bg-white border-zinc-200">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-indigo-300 ring-1 ring-indigo-400/30">
+                  <Sparkles className="h-7 w-7" />
+                </span>
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-900">Your studio is empty</h2>
+                  <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-500">
+                    Give AI a genre and a few keywords — it will pitch you three book
+                    concepts to start from.
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {tab === "library" && (
-        <>
-          {serializedLibrary.length === 0 ? (
-            <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center">
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-300 ring-1 ring-emerald-400/30">
-                <BookOpen className="h-7 w-7" />
-              </span>
-              <div>
-                <h2 className="text-lg font-semibold text-white">Your library is empty</h2>
-                <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-500">
-                  You haven't added any books to your library yet. Visit the store to find some great reads.
-                </p>
+                <Link href="/books/new" className="btn-primary mt-2">
+                  <Plus className="h-4 w-4" /> Create your first book
+                </Link>
               </div>
-              <Link href="/store" className="btn-primary mt-2">
-                <BookOpen className="h-4 w-4 mr-2" /> Browse Store
-              </Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {serializedLibrary.map((book) => (
-                <BookCard
-                  key={book.id}
-                  book={book}
-                  href={`/store/${book.id}/read`}
-                  meta={`by ${book.authorName}`}
-                />
-              ))}
-            </div>
-          )}
-        </>
-      )}
+            ) : (
+              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {serializedAuthored.map((book) => (
+                  <div key={book.id} className="relative group">
+                    <BookCard
+                      book={book}
+                      href={`/books/${book.id}`}
+                      showStatus
+                      meta={`${book.chapterCount} ch · ${book.wordCount.toLocaleString()} words`}
+                    />
+                    <DeleteBookButton bookId={book.id} bookTitle={book.title} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
-      {/* ── Writer of the Week ─────────────────────────────────── */}
-      <ContestSection
-        books={authoredBooks.map((b) => ({
-          id: b.id,
-          title: b.title,
-          isPublished: b.isPublished,
-        }))}
-      />
+        {tab === "library" && (
+          <>
+            {serializedLibrary.length === 0 ? (
+              <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center bg-white border-zinc-200">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-300 ring-1 ring-emerald-400/30">
+                  <BookOpen className="h-7 w-7" />
+                </span>
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-900">Your library is empty</h2>
+                  <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-500">
+                    You haven't added any books to your library yet. Visit the store to find some great reads.
+                  </p>
+                </div>
+                <Link href="/store" className="btn-primary mt-2">
+                  <BookOpen className="h-4 w-4 mr-2" /> Browse Store
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {serializedLibrary.map((book) => (
+                  <BookCard
+                    key={book.id}
+                    book={book}
+                    href={`/store/${book.id}/read`}
+                    meta={`by ${book.authorName}`}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Writer of the Week ─────────────────────────────────── */}
+        <ContestSection
+          books={authoredBooks.map((b) => ({
+            id: b.id,
+            title: b.title,
+            isPublished: b.isPublished,
+          }))}
+        />
+      </div>
     </div>
   );
 }
