@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
@@ -11,6 +12,24 @@ export function Header() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const signingOutRef = React.useRef(false);
+
+  const handleSignOut = async () => {
+    if (signingOutRef.current) {
+      return;
+    }
+
+    signingOutRef.current = true;
+    setIsSigningOut(true);
+
+    try {
+      await signOut({ callbackUrl: "/" });
+    } finally {
+      signingOutRef.current = false;
+      setIsSigningOut(false);
+    }
+  };
 
   const navLink = (href: string, label: string, icon: React.ReactNode) => (
     <Link
@@ -50,11 +69,10 @@ export function Header() {
                 {session.user.name || session.user.email}
               </span>
               <button
-                onClick={async () => {
-                  await signOut({ callbackUrl: "/" });
-                }}
-                className="btn-ghost !px-2.5 !py-1.5"
-                title="Sign out"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="btn-ghost !px-2.5 !py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+                title={isSigningOut ? "Signing out…" : "Sign out"}
               >
                 <LogOut className="h-4 w-4" />
               </button>

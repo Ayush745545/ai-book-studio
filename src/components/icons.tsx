@@ -440,3 +440,32 @@ export const RefreshCw = (p: IconProps) => (
     <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
   </svg>
 );
+
+export const Mail = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="m22 7-10 5L2 7" />
+  </svg>
+);
+
+export const Lock = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="3" y="11" width="18" height="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+);
+
+export const Eye = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+export const EyeOff = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M9.9 4.24A9.74 9.74 0 0 0 12 4c7 0 10 8 10 8a13 13 0 0 1-1.7 2.7" />
+    <path d="M6.6 6.6A13.5 13.5 0 0 0 2 12s3 8 10 8a9.5 9.5 0 0 0 3.4-.6" />
+    <path d="M2 2l20 20" />
+  </svg>
+);
