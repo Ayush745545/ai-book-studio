@@ -297,17 +297,6 @@ return (
         }
         .animate-slidein { animation: slidein .26s cubic-bezier(.2,1.05,.36,1); }
         .grain { background-image: radial-gradient(rgba(255,255,255,.18) 1px, transparent 1px); background-size: 3px 3px; }
-        @keyframes think-spin {
-          to { transform: rotate(360deg); }
-        }
-        .think-circle {
-          width: 10px; height: 10px;
-          border-radius: 9999px;
-          border: 2px solid rgba(129,140,248,.25);
-          border-top-color: #6366f1;
-          animation: think-spin .7s linear infinite;
-          box-shadow: 0 0 8px rgba(99,102,241,.5);
-        }
       `}</style>
 
       {/* Drag handle — only the header strip is draggable, so clicking inside
@@ -502,9 +491,16 @@ function ChatRow({
         }`}
       >
         {isEmpty ? (
-          <div className="flex items-center gap-2 py-0.5">
-            <span className="think-circle" />
-            <span className="text-[11px] font-medium text-zinc-400">AI is thinking…</span>
+          <div className="flex items-center gap-2.5 py-1">
+            <video
+              src="/covers/Untitled - September 21, 2026 at 18.21.22.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white shadow-[0_0_16px_rgba(99,102,241,.75)]"
+            />
+            <span className="text-[12px] font-medium text-zinc-500">AI is thinking…</span>
           </div>
         ) : (
           <>{display}</>
