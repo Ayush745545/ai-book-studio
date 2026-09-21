@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { BookOpen, LayoutGrid, LogOut, Settings, Star, Store, Moon, Sun } from "@/components/icons";
 import { Spinner } from "@/components/icons";
@@ -10,7 +10,6 @@ import { useTheme } from "@/components/theme-provider";
 export function Header() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
-  const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
 
   const navLink = (href: string, label: string, icon: React.ReactNode) => (
@@ -54,9 +53,7 @@ export function Header() {
               </span>
               <button
                 onClick={async () => {
-                  await signOut({ redirect: false });
-                  router.push("/");
-                  router.refresh();
+                  await signOut({ callbackUrl: "/" });
                 }}
                 className="btn-ghost !px-2.5 !py-1.5"
                 title="Sign out"
