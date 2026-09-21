@@ -476,6 +476,11 @@ function ChatRow({
 }) {
   const isUser = m.role === "user";
   const isEmpty = !m.text && streaming;
+  // Only strip stray markdown asterisks from assistant replies — user input
+  // is shown verbatim.
+  const display = isUser
+    ? m.text
+    : m.text.replace(/\*\*/g, "").replace(/(^|\s)\*(?=\S)/g, "$1").replace(/(\S)\*(?=\s|$)/g, "$1");
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
@@ -492,12 +497,12 @@ function ChatRow({
             <span className="h-2 w-2 animate-bounce rounded-full bg-fuchsia-400 shadow-[0_0_6px_rgba(232,121,249,.8)]" style={{ animationDelay: ".3s" }} />
           </div>
         ) : (
-          <>{m.text}</>
+          <>{display}</>
         )}
         {!isUser && !isEmpty && !streaming && (
           <div className="mt-2 -mb-1 flex items-center justify-end gap-1 pt-1">
             <button
-              onClick={() => onInsert(m.text)}
+              onClick={() => onInsert(display)}
               className="group inline-flex items-center gap-1 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 px-2.5 py-1 text-[10.5px] font-bold text-indigo-700 ring-1 ring-indigo-100 transition hover:-translate-y-[1px] hover:from-indigo-100 hover:to-violet-100 hover:shadow-[0_6px_14px_-10px_rgba(79,70,229,0.7)]"
               title="Insert at cursor / selection"
             >

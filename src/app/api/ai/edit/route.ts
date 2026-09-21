@@ -112,6 +112,12 @@ export async function POST(req: Request) {
       result = "No output received from the AI model.";
     }
 
+    // Strip stray markdown asterisks so the output is clean plain text.
+    result = result
+      .replace(/\*\*/g, "")
+      .replace(/(^|\s)\*(?=\S)/g, "$1")
+      .replace(/(\S)\*(?=\s|$)/g, "$1");
+
     if (body.store) {
       try {
         await prisma.aiEdit.create({
@@ -187,6 +193,7 @@ function buildSystemPrompt(ctx: {
 }): string {
   const parts: string[] = [
     "You are an expert book-writing and editing assistant inside AI Book Studio.",
+    "Output plain text only — no markdown, no asterisks (** or *), no backticks, no headings, no HTML.",
   ];
   if (ctx.bookTitle) parts.push(`You are helping an author editing a book titled "${ctx.bookTitle}".`);
   if (ctx.bookGenre) parts.push(`Genre: ${ctx.bookGenre}.`);

@@ -38,7 +38,9 @@ export async function POST(req: Request, { params }: Params) {
 
     const systemPrompt = `You are a helpful AI writing assistant for an author working on a book called "${book.title}"${book.genre ? ` in the ${book.genre} genre` : ""}${book.description ? `. Synopsis: ${book.description}` : ""}${body.chapterTitle ? `. Currently editing chapter: "${body.chapterTitle}"` : ""}.
 
-Help the author with their writing. Be creative, specific, and actionable. Keep responses concise but helpful.`;
+Help the author with their writing. Be creative, specific, and actionable. Keep responses concise but helpful.
+
+IMPORTANT: output plain text only — no markdown, no asterisks (** or *), no backticks, no headings, no HTML. Use blank lines between paragraphs.`;
 
     if (body.provider === "openrouter") {
       const { default: OpenAI } = await import("openai");

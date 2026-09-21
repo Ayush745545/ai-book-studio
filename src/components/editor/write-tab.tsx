@@ -34,6 +34,7 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
   const [showAI, setShowAI] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [autoSaved, setAutoSaved] = useState(true);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const { settings } = useUserSettings();
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -169,6 +170,10 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
 
   // Debounced auto-save — fires 1500ms after the user stops typing.
   useEffect(() => {
+    if (!autoSaveEnabled) {
+      setAutoSaved(true);
+      return;
+    }
     if (!dirty) {
       setAutoSaved(true);
       return;
@@ -181,7 +186,7 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dirty, title, content]);
+  }, [dirty, title, content, autoSaveEnabled]);
 
   useEffect(() => {
     return () => {
@@ -414,43 +419,52 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
 
           <div className="flex items-center gap-6">
             <span className="text-xs font-medium text-zinc-500">{wordCount} words</span>
-            {saving ? (
-              <span className="text-xs font-medium text-amber-500 flex items-center gap-1.5">
-                <span className="inline-flex h-3 w-3 rounded-full border-2 border-amber-300 border-t-amber-600 animate-spin" />
-                Saving…
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-medium flex items-center gap-1.5 ${
+                saving ? "text-amber-500" : autoSaved ? "text-emerald-500" : dirty ? "text-zinc-500" : "text-zinc-400"
+              }`}>
+                {saving ? (
+                  <span className="inline-flex h-3 w-3 rounded-full border-2 border-amber-300 border-t-amber-600 animate-spin" />
+                ) : autoSaved ? (
+                  <Check className="h-3.5 w-3.5" />
+                ) : dirty ? (
+                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                ) : null}
+                {saving ? "Saving…" : autoSaved ? "Saved" : dirty ? "Unsaved" : "Idle"}
               </span>
-            ) : autoSaved ? (
-              <span className="text-xs font-medium text-emerald-500 flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5" /> Saved
-              </span>
-            ) : dirty ? (
-              <span className="text-xs font-medium text-zinc-500 flex items-center gap-1.5">
-                <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" /> Unsaved
-              </span>
-            ) : null}
-            <button
-              onClick={saveNow}
-              disabled={saving || !dirty}
-              title="Save now (Ctrl/Cmd+S)"
-              className={`ml-2 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                dirty
-                  ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                  : "bg-zinc-100 text-zinc-400 cursor-not-allowed"
-              }`}
-            >
-              {saving ? <Spinner className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-              {saving ? "Saving…" : "Save"}
-            </button>
-              <button className="hover:text-zinc-800 transition" title="Zoom Out"><ArrowLeft className="h-4 w-4" /></button>
-              <button className="hover:text-zinc-800 transition" title="Split Screen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
               <button
-                onClick={() => setShowLines(!showLines)}
-                className={`transition ${showLines ? "text-orange-500" : "hover:text-zinc-800"}`}
-                title="Toggle line numbers"
+                onClick={saveNow}
+                disabled={saving || !dirty}
+                title="Save now (Ctrl/Cmd+S)"
+                className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-semibold transition ${
+                  dirty ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-zinc-100 text-zinc-400 cursor-not-allowed"
+                }`}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12h20"/><path d="M2 6h20"/><path d="M2 18h20"/></svg>
+                {saving ? <Spinner className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                Save
               </button>
+              <label className="flex items-center gap-1.5 text-xs text-zinc-600 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoSaveEnabled}
+                  onChange={(e) => setAutoSaveEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <span className="relative w-7 h-4 bg-zinc-200 rounded-full peer-checked:bg-indigo-500 transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition peer-checked:after:translate-x-3" />
+                Auto
+              </label>
             </div>
+
+            <button className="hover:text-zinc-800 transition" title="Zoom Out"><ArrowLeft className="h-4 w-4" /></button>
+            <button className="hover:text-zinc-800 transition" title="Split Screen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+            <button
+              onClick={() => setShowLines(!showLines)}
+              className={`transition ${showLines ? "text-orange-500" : "hover:text-zinc-800"}`}
+              title="Toggle line numbers"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12h20"/><path d="M2 6h20"/><path d="M2 18h20"/></svg>
+            </button>
+          </div>
 
             <button
               onClick={() => setShowAI(!showAI)}
