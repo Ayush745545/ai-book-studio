@@ -41,11 +41,6 @@ function LoginForm() {
           <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
             <BookOpen className="h-6 w-6 text-white" />
           </span>
-          <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-          <p className="mt-2 text-sm text-zinc-500">
-            New here? No sign-up needed — enter any email and a password, and your
-            account is created automatically on first sign-in.
-          </p>
         </div>
 
         {error && (
