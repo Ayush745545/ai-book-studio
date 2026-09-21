@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { BookIdea } from "@/types";
 import { apiFetch } from "@/lib/client";
 import { useToast } from "@/components/ui/toast";
+import { useUserSettings } from "@/components/user-settings-context";
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,8 +14,6 @@ import {
   Sparkles,
   Spinner,
 } from "@/components/icons";
-
-type AiProvider = "openai" | "openrouter";
 
 const GENRES = [
   "Fantasy",
@@ -41,12 +40,11 @@ type Step = "idea" | "details";
 export default function NewBookPage() {
   const router = useRouter();
   const toast = useToast();
+  const { settings, setSettings, availableModels, setAvailableModels } = useUserSettings();
 
   // Step 1
   const [genre, setGenre] = useState("");
   const [keywords, setKeywords] = useState("");
-  const [provider, setProvider] = useState<AiProvider>("openai");
-  const [model, setModel] = useState("");
   const [generating, setGenerating] = useState(false);
   const [ideas, setIdeas] = useState<BookIdea[] | null>(null);
   const [selected, setSelected] = useState<BookIdea | null>(null);
@@ -58,13 +56,33 @@ export default function NewBookPage() {
   const [price, setPrice] = useState("24.99");
   const [creating, setCreating] = useState(false);
 
+  async function fetchModels() {
+    if (settings.aiProvider !== "openrouter") return;
+    try {
+      const base = (settings.openRouterBaseUrl || "https://openrouter.ai/api/v1").replace(/\/+$/, "");
+      const res = await fetch(`${base}/models`, {
+        headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ""}` },
+      });
+      if (!res.ok) throw new Error(`Failed to fetch models (${res.status})`);
+      const data = (await res.json()) as { data?: { id?: string }[] };
+      const models = (data.data ?? []).map((m) => m.id ?? "").filter(Boolean);
+      if (models.length === 0) {
+        toast("No models found. Check your API key and connection.", "error");
+      } else {
+        setAvailableModels(models);
+      }
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Failed to fetch models", "error");
+    }
+  }
+
   async function generateIdeas(e: React.FormEvent) {
     e.preventDefault();
     if (!genre.trim() || !keywords.trim()) {
       toast("Enter both a genre and some keywords", "error");
       return;
     }
-    if (provider === "openrouter" && !model.trim()) {
+    if (settings.aiProvider === "openrouter" && !settings.openRouterModel.trim()) {
       toast("Enter an OpenRouter model name", "error");
       return;
     }
@@ -75,8 +93,8 @@ export default function NewBookPage() {
         body: JSON.stringify({
           genre: genre.trim(),
           keywords: keywords.trim(),
-          provider,
-          ...(model.trim() ? { model: model.trim() } : {}),
+          provider: settings.aiProvider,
+          model: settings.aiProvider === "openrouter" ? settings.openRouterModel : settings.openAIModel,
         }),
       });
       setIdeas(res.ideas);
@@ -199,21 +217,63 @@ export default function NewBookPage() {
                 <div>
                   <label className="label">AI provider</label>
                   <select
-                    value={provider}
-                    onChange={(e) => setProvider(e.target.value as AiProvider)}
+                    value={settings.aiProvider}
+                    onChange={(e) => {
+                      setSettings({ aiProvider: e.target.value as "openai" | "openrouter" });
+                      setAvailableModels([]);
+                    }}
                     className="input"
                   >
                     <option value="openai" className="bg-zinc-900">OpenAI</option>
                     <option value="openrouter" className="bg-zinc-900">OpenRouter (cloud)</option>
                   </select>
                 </div>
-                {provider === "openrouter" && (
+                {settings.aiProvider === "openrouter" ? (
                   <div>
                     <label className="label">OpenRouter model</label>
+                    <div className="flex gap-2">
+                      <select
+                        value={settings.openRouterModel}
+                        onChange={(e) => setSettings({ openRouterModel: e.target.value })}
+                        className="input"
+                      >
+                        <option value="">Select a model…</option>
+                        {availableModels.map((m) => (
+                          <option key={m} value={m} className="bg-zinc-900">
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={fetchModels}
+                        disabled={generating}
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white hover:bg-white/10 disabled:opacity-50"
+                        title="Fetch available models"
+                      >
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 12"/><path d="M21 3v6h-6"/></svg>
+                        Fetch
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Or type a model name manually (e.g. openai/gpt-4o-mini).
+                    </p>
+                    {availableModels.length === 0 && (
+                      <input
+                        value={settings.openRouterModel}
+                        onChange={(e) => setSettings({ openRouterModel: e.target.value })}
+                        placeholder="openai/gpt-4o-mini"
+                        className="input mt-2"
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <label className="label">OpenAI model</label>
                     <input
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                      placeholder="e.g. openai/gpt-4o-mini"
+                      value={settings.openAIModel}
+                      onChange={(e) => setSettings({ openAIModel: e.target.value })}
+                      placeholder="gpt-4o-mini"
                       className="input"
                     />
                   </div>
