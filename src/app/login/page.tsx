@@ -1,16 +1,11 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { BookOpen, Sparkles, Spinner } from "@/components/icons";
 
 function LoginForm() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/dashboard";
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -24,14 +19,15 @@ function LoginForm() {
       return;
     }
     setLoading(true);
-    const res = await signIn("credentials", { email, password, redirect: false });
-    if (res?.error) {
-      setError("Invalid email or password. Please try again.");
-      setLoading(false);
-    } else {
-      router.push(callbackUrl);
-      router.refresh();
-    }
+    // Native redirect: NextAuth sets the session cookie on the server before
+    // issuing the redirect, so the middleware sees an authenticated request
+    // and does not bounce us back to /login.
+    await signIn("credentials", {
+      email,
+      password,
+      callbackUrl: "/dashboard",
+      redirect: true,
+    });
   }
 
   return (
