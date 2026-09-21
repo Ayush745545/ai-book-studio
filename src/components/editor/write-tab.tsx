@@ -5,7 +5,7 @@ import type { SerializedBook, SerializedChapter, ChapterType } from "@/types";
 import { apiFetch } from "@/lib/client";
 import { useToast } from "@/components/ui/toast";
 import { useUserSettings } from "@/components/user-settings-context";
-import { Plus, Spinner, Trash, X, Check, GripVertical, FileText, ArrowLeft, ArrowRight } from "@/components/icons";
+import { Plus, Spinner, Trash, X, Check, GripVertical, FileText } from "@/components/icons";
 import { OnboardingTutorial } from "./onboarding-tutorial";
 import { AIAssistantPopup } from "./ai-assistant-popup";
 import { SelectionAiPopup } from "./selection-ai-popup";
@@ -52,10 +52,17 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
   const loadedChapterIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (active && active.id !== loadedChapterIdRef.current) {
-      // Flush any pending edits to the *previous* chapter before switching,
-      // otherwise the autosave timer would write old content to the new chapter.
+      // Flush any pending edits to the *previous* chapter before switching.
+      // At this moment `active` already points at the NEW chapter, so we
+      // must save to the old chapter's id explicitly.
       if (dirty && loadedChapterIdRef.current) {
-        runAutoSave();
+        const prevId = loadedChapterIdRef.current;
+        const prevTitle = title;
+        const prevContent = content;
+        saveChapter(prevId, prevTitle, prevContent).then(() => {
+          setDirty(false);
+          setAutoSaved(true);
+        });
       }
       loadedChapterIdRef.current = active.id;
       setTitle(active.title);
@@ -109,20 +116,85 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
 
   const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
 
-  const saveNow = async () => {
+const saveNow = async () => {
     if (!active || saving) return;
     setSaving(true);
+    let lastErr: unknown;
     try {
-      await apiFetch(`/api/chapters/${active.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ title, content }),
-      });
-      setDirty(false);
-      setAutoSaved(true);
-      toast("Saved", "success");
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          // Only send title when non-empty — the PUT schema rejects "".
+          const body: Record<string, unknown> = { content };
+          if (title.trim()) body.title = title;
+          await apiFetch(`/api/chapters/${active.id}`, {
+            method: "PUT",
+            body: JSON.stringify(body),
+          });
+          setDirty(false);
+          setAutoSaved(true);
+          toast("Saved", "success");
+          return;
+        } catch (e) {
+          lastErr = e;
+          if (e instanceof Error && "status" in e) {
+            const status = (e as { status?: number }).status;
+            if (status && status < 500) throw e;
+          }
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+        }
+      }
+      throw lastErr;
     } catch (e) {
       setAutoSaved(false);
-      toast("Save failed", "error");
+      setDirty(true);
+      const status = e instanceof Error && "status" in e ? (e as { status?: number }).status : undefined;
+      toast(
+        status === 401 || status === 403
+          ? "Session expired — sign in again to save"
+          : "Save failed",
+        "error"
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Save to an *explicit* chapter id. Used when flushing pending edits before
+  // switching chapters — at that moment `active` already points at the NEW
+  // chapter, so we must not save to the new chapter's id.
+  const saveChapter = async (chapterId: string, chapterTitle: string, chapterContent: string) => {
+    setSaving(true);
+    let lastErr: unknown;
+    try {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const body: Record<string, unknown> = { content: chapterContent };
+          if (chapterTitle.trim()) body.title = chapterTitle;
+          await apiFetch(`/api/chapters/${chapterId}`, {
+            method: "PUT",
+            body: JSON.stringify(body),
+          });
+          return;
+        } catch (e) {
+          lastErr = e;
+          if (e instanceof Error && "status" in e) {
+            const status = (e as { status?: number }).status;
+            if (status && status < 500) throw e;
+          }
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+        }
+      }
+      throw lastErr;
+    } catch (e) {
+      setAutoSaved(false);
+      setDirty(true);
+      const status = e instanceof Error && "status" in e ? (e as { status?: number }).status : undefined;
+      toast(
+        status === 401 || status === 403
+          ? "Session expired — sign in again to save"
+          : "Auto-save failed — your edits are kept",
+        "error"
+      );
     } finally {
       setSaving(false);
     }
@@ -150,19 +222,42 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
   async function runAutoSave() {
     if (!active) return;
     setSaving(true);
+    let lastErr: unknown;
     try {
-      await apiFetch(`/api/chapters/${active.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ title, content }),
-      });
-      setDirty(false);
-      setAutoSaved(true);
-      // Don't call refreshBook() here — it would re-trigger the save effect
-      // via the chapters state and create a save loop. The parent component
-      // re-reads the chapter on navigation / next chapter switch instead.
+      // Retry transient failures (network blips, 5xx) up to 3 times.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          // Only send title when non-empty — the PUT schema rejects "".
+          const body: Record<string, unknown> = { content };
+          if (title.trim()) body.title = title;
+          await apiFetch(`/api/chapters/${active.id}`, {
+            method: "PUT",
+            body: JSON.stringify(body),
+          });
+          setDirty(false);
+          setAutoSaved(true);
+          return;
+        } catch (e) {
+          lastErr = e;
+          // Don't retry on 4xx client errors (auth, validation, forbidden).
+          if (e instanceof Error && "status" in e) {
+            const status = (e as { status?: number }).status;
+            if (status && status < 500) throw e;
+          }
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+        }
+      }
+      throw lastErr;
     } catch (e) {
       setAutoSaved(false);
-      toast("Auto-save failed", "error");
+      setDirty(true);
+      const status = e instanceof Error && "status" in e ? (e as { status?: number }).status : undefined;
+      toast(
+        status === 401 || status === 403
+          ? "Session expired — sign in again to save"
+          : "Auto-save failed — your edits are kept",
+        "error"
+      );
     } finally {
       setSaving(false);
     }
@@ -454,8 +549,6 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
               </label>
             </div>
 
-            <button className="hover:text-zinc-800 transition" title="Zoom Out"><ArrowLeft className="h-4 w-4" /></button>
-            <button className="hover:text-zinc-800 transition" title="Split Screen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
             <button
               onClick={() => setShowLines(!showLines)}
               className={`transition ${showLines ? "text-orange-500" : "hover:text-zinc-800"}`}
