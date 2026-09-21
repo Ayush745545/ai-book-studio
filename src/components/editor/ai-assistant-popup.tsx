@@ -311,9 +311,8 @@ return (
 
         <div className="relative flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-[0_10px_22px_-10px_rgba(99,102,241,0.85)] ring-1 ring-white/60">
-              <img src="/covers/chatbot.png" alt="AI" className="h-8 w-8 object-contain" />
-              <span className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/30" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+              <img src="/covers/chatbot.png" alt="AI" className="h-10 w-10 object-contain" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
