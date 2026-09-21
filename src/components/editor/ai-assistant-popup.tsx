@@ -201,6 +201,8 @@ export function AIAssistantPopup({
     const isJsonLike = (s: string) =>
       (s.startsWith("{") && s.includes("\"result\"")) ||
       (s.startsWith("{") && s.includes("result"));
+    const stripAsterisks = (s: string) =>
+      s.replace(/\*\*/g, "").replace(/(^|\s)\*(?=\S)/g, "$1").replace(/(\S)\*(?=\s|$)/g, "$1");
     const unwrap = (s: string) => {
       if (!isJsonLike(s.trimStart())) return s;
       try {
@@ -242,7 +244,7 @@ export function AIAssistantPopup({
         const raw = await res.text();
         setMessages((ms) =>
           ms.map((m) =>
-            m.id === assistantId ? { ...m, text: unwrap(raw) } : m
+            m.id === assistantId ? { ...m, text: stripAsterisks(unwrap(raw)) } : m
           )
         );
       } else {
@@ -255,7 +257,7 @@ export function AIAssistantPopup({
           buffer += chunk;
           setMessages((ms) =>
             ms.map((m) =>
-              m.id === assistantId ? { ...m, text: unwrap(buffer) } : m
+              m.id === assistantId ? { ...m, text: stripAsterisks(unwrap(buffer)) } : m
             )
           );
           if (done) break;
@@ -279,14 +281,13 @@ export function AIAssistantPopup({
     }
   }
 
-  return (
+return (
     <div
-      className={`fixed z-[100] flex h-[640px] w-[470px] max-w-[92vw] flex-col overflow-hidden rounded-[26px] border border-white/60 bg-white shadow-[0_30px_90px_-30px_rgba(79,70,229,0.55),0_15px_40px_-15px_rgba(30,27,75,0.35),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl ${!hasAnimated.current ? "animate-slidein" : ""} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+      className={`fixed z-[100] flex h-[640px] w-[470px] max-w-[92vw] flex-col overflow-hidden rounded-[26px] border border-white/60 bg-white shadow-[0_30px_90px_-30px_rgba(79,70,229,0.55),0_15px_40px_-15px_rgba(30,27,75,0.35),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl ${!hasAnimated.current ? "animate-slidein" : ""} ${isDragging ? "" : ""}`}
       style={{
         left: `${pos.left}px`,
         top: `${pos.top}px`,
       }}
-      onMouseDown={handleDragStart}
       data-lenis-prevent
     >
       <style>{`
@@ -298,7 +299,12 @@ export function AIAssistantPopup({
         .grain { background-image: radial-gradient(rgba(255,255,255,.18) 1px, transparent 1px); background-size: 3px 3px; }
       `}</style>
 
-      <div className="relative border-b border-zinc-100/80 bg-gradient-to-br from-indigo-50 via-white to-fuchsia-50 px-5 pb-4 pt-5">
+      {/* Drag handle — only the header strip is draggable, so clicking inside
+          the chat, the input, or the model picker never accidentally moves it. */}
+      <div
+        className="relative cursor-grab select-none border-b border-zinc-100/80 bg-gradient-to-br from-indigo-50 via-white to-fuchsia-50 px-5 pb-4 pt-5"
+        onMouseDown={handleDragStart}
+      >
         <div className="pointer-events-none absolute inset-0 grain opacity-40 mix-blend-overlay" />
         <div className="pointer-events-none absolute -top-16 right-0 h-40 w-40 rounded-full bg-gradient-to-br from-indigo-400/25 via-violet-400/20 to-fuchsia-400/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-10 -left-8 h-32 w-32 rounded-full bg-gradient-to-br from-sky-300/15 to-indigo-300/15 blur-3xl" />

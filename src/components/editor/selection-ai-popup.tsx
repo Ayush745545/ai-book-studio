@@ -124,6 +124,11 @@ export function SelectionAiPopup({
   const cardRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  // Strip stray markdown asterisks that leak through from the model —
+  // keeps the output clean like plain text instead of showing `**` markup.
+  const stripAsterisks = (s: string) =>
+    s.replace(/\*\*/g, "").replace(/(^|\s)\*(?=\S)/g, "$1").replace(/(\S)\*(?=\s|$)/g, "$1");
+
   // ── Positioning: prefer below the selection, flip above when tight ──
   useLayoutEffect(() => {
     function place() {
@@ -210,7 +215,7 @@ export function SelectionAiPopup({
         method: "POST",
         body: JSON.stringify(body),
       });
-      setOutput(res.result);
+      setOutput(stripAsterisks(res.result));
     } catch (e) {
       setError(e instanceof Error ? e.message : "AI request failed.");
       toast("AI failed — check OpenAI or OpenRouter setup", "error");
@@ -221,7 +226,7 @@ export function SelectionAiPopup({
 
   const accept = () => {
     if (!output) return;
-    onApply(output);
+    onApply(stripAsterisks(output));
     toast("Applied", "success");
     onClose();
   };
@@ -229,7 +234,7 @@ export function SelectionAiPopup({
   const copyOut = async () => {
     if (!output) return;
     try {
-      await navigator.clipboard.writeText(output);
+      await navigator.clipboard.writeText(stripAsterisks(output));
       toast("Copied to clipboard", "success");
     } catch {
       toast("Copy failed", "error");
