@@ -16,6 +16,11 @@ export default function LandingPage() {
         <div className="relative z-20 text-center">
           <h1 className="text-[clamp(2.25rem,4.3vw,4.5rem)] font-extrabold leading-[.98] tracking-[-0.065em] text-zinc-950">Pick a Genre. <span className="bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent">Create a Book.</span></h1>
           <p className="mx-auto mt-4 max-w-2xl text-sm font-medium leading-6 text-zinc-500 sm:text-base">Explore countless styles or quickly turn a single prompt into a fully-fledged book. No writing experience needed.</p>
+          <div className="mt-5 flex items-center justify-center">
+            <div className="genre-video-circle">
+              <video src="/covers/Untitled - September 21, 2026 at 18.21.22.mp4" autoPlay muted loop playsInline className="h-full w-full object-cover" />
+            </div>
+          </div>
           <Link href="/books/new" className="genre-explore mt-5 inline-flex items-center gap-2 rounded-full bg-zinc-950 px-5 py-3 text-sm font-bold text-white shadow-xl shadow-zinc-900/15 transition hover:-translate-y-0.5 hover:bg-zinc-800">Explore Now <ArrowRight className="h-4 w-4" /></Link>
         </div>
 
