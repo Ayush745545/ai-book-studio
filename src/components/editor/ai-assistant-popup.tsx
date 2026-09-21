@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/client";
 import { useToast } from "@/components/ui/toast";
-import { useSafeUserSettings } from "@/components/user-settings-context";
+import { useUserSettings } from "@/components/user-settings-context";
 import {
   X,
   Spinner,
@@ -18,6 +18,7 @@ import {
   Users,
   Rocket,
   Flame,
+  RefreshCw,
 } from "@/components/icons";
 
 interface Message {
@@ -42,7 +43,7 @@ export function AIAssistantPopup({
   onInsert,
 }: AIAssistantPopupProps) {
   const toast = useToast();
-  const userSettings = useSafeUserSettings();
+  const userSettings = useUserSettings();
   const provider = userSettings.effectiveProvider;
   const model = userSettings.effectiveModel;
 
@@ -59,11 +60,39 @@ export function AIAssistantPopup({
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, left: 0, top: 0 });
   const hasAnimated = useRef(false);
+  const [fetchingModels, setFetchingModels] = useState(false);
 
   useEffect(() => {
     setPos({ left: window.innerWidth - 494, top: 80 });
     hasAnimated.current = false;
   }, []);
+
+  async function fetchModels() {
+    if (provider !== "openrouter") return;
+    setFetchingModels(true);
+    try {
+      const base = (userSettings.settings.openRouterBaseUrl || "https://openrouter.ai/api/v1").replace(/\/+$/, "");
+      const res = await fetch(`${base}/models`, {
+        headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ""}` },
+      });
+      if (!res.ok) throw new Error(`Failed to fetch models (${res.status})`);
+      const data = (await res.json()) as { data?: { id?: string }[] };
+      const models = (data.data ?? []).map((m) => m.id ?? "").filter(Boolean);
+      if (models.length === 0) {
+        toast("No models found. Check your API key and connection.", "error");
+      } else {
+        userSettings.setAvailableModels(models);
+        if (!userSettings.settings.openRouterModel || !models.includes(userSettings.settings.openRouterModel)) {
+          userSettings.setSettings({ openRouterModel: models[0] });
+        }
+        toast(`Loaded ${models.length} models`, "success");
+      }
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Failed to fetch models", "error");
+    } finally {
+      setFetchingModels(false);
+    }
+  }
 
   const handleDragStart = useCallback(
     (e: React.MouseEvent) => {
@@ -328,12 +357,42 @@ export function AIAssistantPopup({
               </p>
             </div>
           </div>
-          <Link
-            href="/settings"
-            className="shrink-0 rounded-xl bg-gradient-to-br from-zinc-50 to-white px-2.5 py-1.5 text-[10px] font-bold text-zinc-700 ring-1 ring-zinc-200 transition hover:from-indigo-50 hover:to-violet-50 hover:text-indigo-700 hover:ring-indigo-200"
-          >
-            Configure →
-          </Link>
+          <div className="flex items-center gap-1.5">
+            {provider === "openrouter" && (
+              <button
+                onClick={fetchModels}
+                disabled={fetchingModels}
+                className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2 py-1.5 text-[10px] font-medium text-zinc-600 transition hover:bg-white/10 disabled:opacity-50"
+                title="Fetch available models from OpenRouter"
+              >
+                {fetchingModels ? (
+                  <Spinner className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+                {fetchingModels ? "Loading…" : "Models"}
+              </button>
+            )}
+            {provider === "openrouter" && userSettings.availableModels.length > 0 && (
+              <select
+                value={model}
+                onChange={(e) => userSettings.setSettings({ openRouterModel: e.target.value })}
+                className="max-w-[140px] rounded-lg border border-white/10 bg-white/5 px-1.5 py-1.5 text-[10px] font-mono text-zinc-700 outline-none focus:border-indigo-300"
+              >
+                {userSettings.availableModels.map((m) => (
+                  <option key={m} value={m} className="bg-white">
+                    {m}
+                  </option>
+                ))}
+              </select>
+            )}
+            <Link
+              href="/settings"
+              className="shrink-0 rounded-xl bg-gradient-to-br from-zinc-50 to-white px-2.5 py-1.5 text-[10px] font-bold text-zinc-700 ring-1 ring-zinc-200 transition hover:from-indigo-50 hover:to-violet-50 hover:text-indigo-700 hover:ring-indigo-200"
+            >
+              Configure →
+            </Link>
+          </div>
         </div>
       </div>
 
