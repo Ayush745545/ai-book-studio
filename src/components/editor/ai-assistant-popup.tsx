@@ -311,8 +311,8 @@ return (
 
         <div className="relative flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center">
-              <img src="/covers/chatbot.png" alt="AI" className="h-6 w-6 object-contain" />
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center">
+              <img src="/covers/chatbot.png" alt="AI" className="h-14 w-14 object-contain" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
