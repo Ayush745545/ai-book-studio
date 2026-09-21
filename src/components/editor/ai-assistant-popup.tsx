@@ -481,43 +481,43 @@ function ChatRow({
   const display = isUser
     ? m.text
     : m.text.replace(/\*\*/g, "").replace(/(^|\s)\*(?=\S)/g, "$1").replace(/(\S)\*(?=\s|$)/g, "$1");
-  return (
+return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`relative max-w-[92%] whitespace-pre-wrap break-words px-3.5 py-2.5 text-[13px] leading-relaxed ${
-          isUser
-            ? "rounded-2xl rounded-br-md bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_8px_20px_-10px_rgba(99,102,241,0.85)] ring-1 ring-white/50"
-            : "rounded-2xl rounded-bl-md border border-zinc-200/80 bg-white text-zinc-800 shadow-[0_6px_18px_-12px_rgba(30,27,75,0.35)] ring-1 ring-inset ring-white/60"
-        }`}
-      >
-        {isEmpty ? (
-          <div className="flex items-center gap-2.5 py-1">
-            <video
-              src="/covers/Untitled - September 21, 2026 at 18.21.22.mp4"
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="h-24 w-24 shrink-0 rounded-full object-cover ring-2 ring-white shadow-[0_0_20px_rgba(99,102,241,.8)]"
-            />
-            <span className="text-[12px] font-medium text-zinc-500">AI is thinking…</span>
-          </div>
-        ) : (
+      {isEmpty ? (
+        <div className="flex items-center gap-2 py-1">
+          <video
+            src="/covers/Untitled - September 21, 2026 at 18.21.22.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="h-8 w-8 shrink-0 rounded-full object-cover"
+          />
+          <span className="text-[11px] font-medium text-zinc-400">AI is thinking…</span>
+        </div>
+      ) : (
+        <div
+          className={`relative max-w-[92%] whitespace-pre-wrap break-words px-3.5 py-2.5 text-[13px] leading-relaxed ${
+            isUser
+              ? "rounded-2xl rounded-br-md bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_8px_20px_-10px_rgba(99,102,241,0.85)] ring-1 ring-white/50"
+              : "rounded-2xl rounded-bl-md border border-zinc-200/80 bg-white text-zinc-800 shadow-[0_6px_18px_-12px_rgba(30,27,75,0.35)] ring-1 ring-inset ring-white/60"
+          }`}
+        >
           <>{display}</>
-        )}
-        {!isUser && !isEmpty && !streaming && (
-          <div className="mt-2 -mb-1 flex items-center justify-end gap-1 pt-1">
-            <button
-              onClick={() => onInsert(display)}
-              className="group inline-flex items-center gap-1 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 px-2.5 py-1 text-[10.5px] font-bold text-indigo-700 ring-1 ring-indigo-100 transition hover:-translate-y-[1px] hover:from-indigo-100 hover:to-violet-100 hover:shadow-[0_6px_14px_-10px_rgba(79,70,229,0.7)]"
-              title="Insert at cursor / selection"
-            >
-              <Wand className="h-3 w-3 transition group-hover:rotate-12" />
-              Insert into text
-            </button>
-          </div>
-        )}
-      </div>
+          {!isUser && !streaming && (
+            <div className="mt-2 -mb-1 flex items-center justify-end gap-1 pt-1">
+              <button
+                onClick={() => onInsert(display)}
+                className="group inline-flex items-center gap-1 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 px-2.5 py-1 text-[10.5px] font-bold text-indigo-700 ring-1 ring-indigo-100 transition hover:-translate-y-[1px] hover:from-indigo-100 hover:to-violet-100 hover:shadow-[0_6px_14px_-10px_rgba(79,70,229,0.7)]"
+                title="Insert at cursor / selection"
+              >
+                <Wand className="h-3 w-3 transition group-hover:rotate-12" />
+                Insert into text
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
