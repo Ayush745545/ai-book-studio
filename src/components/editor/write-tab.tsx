@@ -464,24 +464,15 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12h20"/><path d="M2 6h20"/><path d="M2 18h20"/></svg>
             </button>
           </div>
-        </div>
 
-        {/* Floating AI Assistant button */}
-        <button
-          onClick={() => setShowAI(!showAI)}
-          className="ai-fab-video fixed z-30 h-14 w-14 overflow-hidden rounded-full border-2 border-white shadow-[0_12px_30px_-8px_rgba(99,102,241,.85)] transition hover:scale-[1.06] active:scale-95"
-          style={{ right: 24, bottom: 24 }}
-          title="AI Assistant"
-        >
-          <video
-            src="/covers/Untitled - September 21, 2026 at 18.21.22.mp4"
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="h-full w-full object-cover"
-          />
-        </button>
+          <button
+            onClick={() => setShowAI(!showAI)}
+            className="px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-indigo-50 text-indigo-500 hover:bg-indigo-100 border border-indigo-100"
+            title="AI Assistant"
+          >
+            <Wand className="h-3.5 w-3.5" /> AI Assistant
+          </button>
+        </div>
 
         {/* Floating Toolbar */}
         <div className="absolute right-6 top-20 bg-white border border-[#eedec9] rounded-lg shadow-sm flex p-1 z-20">
