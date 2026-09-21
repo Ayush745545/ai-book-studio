@@ -30,7 +30,7 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2">
-          <img src="/logo.png" alt="AI Book Studio" className="h-14 w-14 object-contain" />
+          <img src="/logo.png" alt="AI Book Studio" className="h-16 w-16 object-contain" />
           <span className="text-sm font-bold tracking-tight text-white sm:text-base">
             AI Book <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Studio</span>
           </span>
