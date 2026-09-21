@@ -51,10 +51,16 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
   const loadedChapterIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (active && active.id !== loadedChapterIdRef.current) {
+      // Flush any pending edits to the *previous* chapter before switching,
+      // otherwise the autosave timer would write old content to the new chapter.
+      if (dirty && loadedChapterIdRef.current) {
+        runAutoSave();
+      }
       loadedChapterIdRef.current = active.id;
       setTitle(active.title);
       setContent(active.content);
       setDirty(false);
+      setAutoSaved(true);
     }
   }, [active?.id]);
 
