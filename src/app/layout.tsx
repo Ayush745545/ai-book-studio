@@ -15,6 +15,10 @@ export const metadata: Metadata = {
   },
   description:
     "Turn an idea into a published, print-ready book. AI brainstorming, chapter writing, grammar polish, DALL-E covers, Stripe checkout and Lulu print-on-demand.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

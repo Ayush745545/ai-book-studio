@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { BookOpen, LayoutGrid, LogOut, Settings, Star, Store, Moon, Sun } from "@/components/icons";
+import { LayoutGrid, LogOut, Settings, Star, Store, Moon, Sun } from "@/components/icons";
 import { Spinner } from "@/components/icons";
 import { useTheme } from "@/components/theme-provider";
 
@@ -30,9 +30,7 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
-            <BookOpen className="h-4 w-4 text-white" />
-          </span>
+          <img src="/logo.png" alt="AI Book Studio" className="h-9 w-9 object-contain" />
           <span className="text-sm font-bold tracking-tight text-white sm:text-base">
             AI Book <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Studio</span>
           </span>
