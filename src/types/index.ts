@@ -1,7 +1,7 @@
 // Shared types — mirror the Prisma enums but as plain string literals so
 // client components don't need to import @prisma/client.
 
-export type AiProvider = "openai" | "ollama";
+export type AiProvider = "openai" | "openrouter";
 
 export type Role = "AUTHOR" | "READER" | "ADMIN";
 

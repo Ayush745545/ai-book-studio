@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SerializedBook, SerializedChapter, ChapterType } from "@/types";
 import { apiFetch } from "@/lib/client";
 import { useToast } from "@/components/ui/toast";
-import { Plus, Save, Spinner, Trash, Wand, X, Check, GripVertical, FileText, ArrowLeft, ArrowRight } from "@/components/icons";
+import { useUserSettings } from "@/components/user-settings-context";
+import { Plus, Spinner, Trash, Wand, X, Check, GripVertical, FileText, ArrowLeft, ArrowRight } from "@/components/icons";
 import { OnboardingTutorial } from "./onboarding-tutorial";
 import { AIAssistantPopup } from "./ai-assistant-popup";
 import { SelectionAiPopup } from "./selection-ai-popup";
@@ -32,6 +33,9 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
   const [adding, setAdding] = useState(false);
   const [showAI, setShowAI] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [autoSaved, setAutoSaved] = useState(false);
+  const { settings } = useUserSettings();
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const seen = localStorage.getItem("aibookstudio-tutorial-seen");
@@ -47,24 +51,6 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
       setDirty(false);
     }
   }, [active]);
-
-  async function saveChapter() {
-    if (!active) return;
-    setSaving(true);
-    try {
-      await apiFetch(`/api/chapters/${active.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ title, content }),
-      });
-      setDirty(false);
-      await refreshBook();
-      toast("Saved", "success");
-    } catch (e) {
-      toast("Failed to save", "error");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function addChapter() {
     setAdding(true);
@@ -116,6 +102,44 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
     end: number;
     anchor: { x: number; yTop: number; yBottom: number };
   } | null>(null);
+
+  async function runAutoSave() {
+    if (!active) return;
+    setSaving(true);
+    try {
+      await apiFetch(`/api/chapters/${active.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ title, content }),
+      });
+      setDirty(false);
+      setAutoSaved(true);
+      await refreshBook();
+    } catch (e) {
+      setAutoSaved(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!dirty) {
+      setAutoSaved(true);
+      return;
+    }
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      runAutoSave();
+    }, 2000);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [dirty, title, content, active]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, []);
 
   const updateSelFromTextarea = useCallback(() => {
     const ta = textareaRef.current;
@@ -342,7 +366,20 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
 
           <div className="flex items-center gap-6">
             <span className="text-xs font-medium text-zinc-500">{wordCount} words</span>
-            <div className="flex items-center gap-3 text-zinc-400">
+            {saving ? (
+              <span className="text-xs font-medium text-amber-500 flex items-center gap-1.5">
+                <span className="inline-flex h-3 w-3 rounded-full border-2 border-amber-300 border-t-amber-600 animate-spin" />
+                Saving…
+              </span>
+            ) : autoSaved ? (
+              <span className="text-xs font-medium text-emerald-500 flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5" /> Saved
+              </span>
+            ) : dirty ? (
+              <span className="text-xs font-medium text-zinc-500 flex items-center gap-1.5">
+                <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" /> Unsaved
+              </span>
+            ) : null}
               <button className="hover:text-zinc-800 transition" title="Zoom Out"><ArrowLeft className="h-4 w-4" /></button>
               <button className="hover:text-zinc-800 transition" title="Split Screen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
               <button
@@ -361,18 +398,9 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
             >
               <Wand className="h-3.5 w-3.5" /> AI Assistant
             </button>
-
-            <button
-              onClick={saveChapter}
-              disabled={!dirty || saving}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${dirty ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-md' : 'bg-zinc-200 text-zinc-400'}`}
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
           </div>
-        </div>
 
-        {/* Floating Toolbar */}
+          {/* Floating Toolbar */}
         <div className="absolute right-6 top-20 bg-white border border-[#eedec9] rounded-lg shadow-sm flex p-1 z-20">
           <button
             onClick={() => {
@@ -399,9 +427,6 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
           </button>
           <div className="w-px bg-[#eedec9] mx-1 my-1" />
-          <button onClick={saveChapter} disabled={!dirty || saving} className={`p-1.5 rounded transition ${dirty ? 'text-orange-500 hover:bg-orange-50' : 'text-zinc-500 hover:bg-zinc-100'}`} title="Save chapter">
-            <Save className="h-4 w-4" />
-          </button>
         </div>
 
         {/* Text Area with Line Numbers */}

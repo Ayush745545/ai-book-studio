@@ -1,12 +1,12 @@
 import OpenAI from "openai";
 import {
-  generateBookIdeaWithOllama,
-  generateChapterWithOllama,
-  grammarCheckWithOllama,
-} from "@/lib/ollama";
+  generateBookIdeaWithOpenRouter,
+  generateChapterWithOpenRouter,
+  grammarCheckWithOpenRouter,
+} from "@/lib/openrouter";
 import type { BookIdea, GrammarChange } from "@/types";
 
-export type AiProvider = "openai" | "ollama";
+export type AiProvider = "openai" | "openrouter";
 
 export interface AiGenerationOptions {
   provider?: AiProvider;
@@ -32,18 +32,18 @@ const IMAGE_MODEL = "dall-e-3";
 function resolveProvider(requested?: AiProvider): AiProvider {
   const configured = process.env.AI_PROVIDER?.trim().toLowerCase();
   if (requested) return requested;
-  if (configured === "ollama") return "ollama";
+  if (configured === "openrouter") return "openrouter";
   if (configured && configured !== "openai") {
-    throw new Error(`Unsupported AI_PROVIDER "${configured}". Use "openai" or "ollama".`);
+    throw new Error(`Unsupported AI_PROVIDER "${configured}". Use "openai" or "openrouter".`);
   }
   return "openai";
 }
 
 function resolveModel(provider: AiProvider, requested?: string): string {
   if (requested?.trim()) return requested.trim();
-  if (provider === "ollama") {
-    const model = process.env.OLLAMA_MODEL?.trim();
-    if (!model) throw new Error("OLLAMA_MODEL is not configured. Add it to .env.local");
+  if (provider === "openrouter") {
+    const model = process.env.OPENROUTER_MODEL?.trim();
+    if (!model) return "openai/gpt-4o-mini";
     return model;
   }
   return TEXT_MODEL;
@@ -58,8 +58,8 @@ export async function generateBookIdea(
   options: AiGenerationOptions = {}
 ): Promise<{ ideas: BookIdea[] }> {
   const provider = resolveProvider(options.provider);
-  if (provider === "ollama") {
-    return generateBookIdeaWithOllama(genre, keywords, options.model);
+  if (provider === "openrouter") {
+    return generateBookIdeaWithOpenRouter(genre, keywords, options.model);
   }
 
   const res = await client().chat.completions.create({
@@ -122,8 +122,8 @@ export async function generateChapter(
   options: AiGenerationOptions = {}
 ): Promise<string> {
   const provider = resolveProvider(options.provider);
-  if (provider === "ollama") {
-    return generateChapterWithOllama(
+  if (provider === "openrouter") {
+    return generateChapterWithOpenRouter(
       bookTitle,
       chapterTitle,
       outline,
@@ -168,8 +168,8 @@ export async function grammarCheck(
   options: AiGenerationOptions = {}
 ): Promise<{ corrected: string; changes: GrammarChange[] }> {
   const provider = resolveProvider(options.provider);
-  if (provider === "ollama") {
-    return grammarCheckWithOllama(text, options.model);
+  if (provider === "openrouter") {
+    return grammarCheckWithOpenRouter(text, options.model);
   }
 
   const res = await client().chat.completions.create({

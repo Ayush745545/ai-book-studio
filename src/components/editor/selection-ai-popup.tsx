@@ -140,10 +140,21 @@ export function SelectionAiPopup({
           top = Math.max(8, window.innerHeight - h - 8);
         }
       }
-      const left = Math.max(
-        8,
-        Math.min(window.innerWidth - POP_W - 8, anchor.x - POP_W / 2)
-      );
+      // Avoid overlapping the AI Assistant popup (fixed right-6 top-20, 470×640)
+      const assistantLeft = window.innerWidth - 24 - 470;
+      const assistantTop = 80;
+      const assistantBottom = 80 + 640;
+      const popupRight = Math.min(window.innerWidth - POP_W - 8, anchor.x - POP_W / 2) + POP_W;
+      const popupTop = top;
+      const popupBottom = top + h;
+      let maxLeft = Math.max(8, Math.min(window.innerWidth - POP_W - 8, anchor.x - POP_W / 2));
+      if (popupRight > assistantLeft && popupBottom > assistantTop && popupTop < assistantBottom) {
+        maxLeft = Math.min(maxLeft, assistantLeft - POP_W - GAP);
+        if (maxLeft < 8) {
+          maxLeft = 8;
+        }
+      }
+      const left = maxLeft;
       const arrowX = Math.max(16, Math.min(POP_W - 16, anchor.x - left));
       setPos({ left, top, above, arrowX });
     }
@@ -202,7 +213,7 @@ export function SelectionAiPopup({
       setOutput(res.result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "AI request failed.");
-      toast("AI failed — check Ollama or OpenAI setup", "error");
+      toast("AI failed — check OpenAI or OpenRouter setup", "error");
     } finally {
       setLoading(false);
     }
@@ -369,10 +380,10 @@ export function SelectionAiPopup({
               ))}
             </div>
             <div className="flex items-center justify-between pt-0.5">
-              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-600">
-                <Sparkles className="h-3 w-3 text-indigo-500" />
-                {userSettings.effectiveProvider} · {userSettings.effectiveModel}
-              </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                  <Sparkles className="h-3 w-3 text-indigo-500" />
+                  {userSettings.effectiveProvider === "openrouter" ? "OpenRouter" : "✨ OpenAI"} · {userSettings.effectiveModel}
+                </span>
               <Link
                 href="/settings"
                 onClick={(e) => e.stopPropagation()}

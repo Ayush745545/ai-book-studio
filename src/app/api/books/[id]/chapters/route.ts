@@ -17,7 +17,7 @@ const schema = z.object({
   outline: z.string().max(4000).optional(),
   tone: z.string().max(50).optional(),
   aiGenerate: z.boolean().optional(),
-  provider: z.enum(["openai", "ollama"]).optional(),
+  provider: z.enum(["openai", "openrouter"]).optional(),
   model: z.string().min(1).max(100).optional(),
   type: z.enum(["FRONT_MATTER", "CHAPTER", "BACK_MATTER"]).optional(),
 });
@@ -27,7 +27,7 @@ type Params = { params: { id: string } };
 /**
  * POST /api/books/[id]/chapters — add a chapter to a book.
  * With { aiGenerate: true } the chapter body is written by the configured
- * text provider (OpenAI or Ollama) using the supplied outline + tone.
+ * text provider (OpenAI or OpenRouter) using the supplied outline + tone.
  */
 export async function POST(req: Request, { params }: Params) {
   try {

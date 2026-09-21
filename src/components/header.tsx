@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { BookOpen, LayoutGrid, LogOut, Settings, Star, Store } from "@/components/icons";
+import { BookOpen, LayoutGrid, LogOut, Settings, Star, Store, Moon, Sun } from "@/components/icons";
 import { Spinner } from "@/components/icons";
+import { useTheme } from "@/components/theme-provider";
 
 export function Header() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const { resolvedTheme, setTheme } = useTheme();
 
   const navLink = (href: string, label: string, icon: React.ReactNode) => (
     <Link
@@ -67,6 +69,13 @@ export function Header() {
               Sign in
             </Link>
           )}
+          <button
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            className="ml-2 flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/5 hover:text-zinc-200 transition"
+            title={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
         </nav>
       </div>
     </header>

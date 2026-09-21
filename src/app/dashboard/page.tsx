@@ -63,7 +63,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   const booksTouched = new Set(activity.filter(a => a.books > 0).map(a => a.date)).size + authoredBooks.length;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <p className="text-sm text-zinc-500">
@@ -74,11 +74,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
           </Link>
         </div>
 
-        <div className="mb-6 flex gap-4 border-b border-zinc-200 pb-2">
+        <div className="mb-6 flex gap-4 border-b border-white/10 pb-2">
           <Link
             href="/dashboard?tab=authored"
             className={`px-2 py-1 text-sm font-medium transition ${
-              tab === "authored" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-zinc-500 hover:text-zinc-700"
+              tab === "authored"
+                ? "text-indigo-400 border-b-2 border-indigo-400"
+                : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
             My Authored Books
@@ -86,7 +88,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
           <Link
             href="/dashboard?tab=library"
             className={`px-2 py-1 text-sm font-medium transition ${
-              tab === "library" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-zinc-500 hover:text-zinc-700"
+              tab === "library"
+                ? "text-indigo-400 border-b-2 border-indigo-400"
+                : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
             My Library
@@ -105,12 +109,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
             </div>
 
             {serializedAuthored.length === 0 ? (
-              <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center bg-white border-zinc-200">
+              <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center">
                 <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-indigo-300 ring-1 ring-indigo-400/30">
                   <Sparkles className="h-7 w-7" />
                 </span>
                 <div>
-                  <h2 className="text-lg font-semibold text-zinc-900">Your studio is empty</h2>
+                  <h2 className="text-lg font-semibold text-zinc-100">Your studio is empty</h2>
                   <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-500">
                     Give AI a genre and a few keywords — it will pitch you three book
                     concepts to start from.
@@ -141,12 +145,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
         {tab === "library" && (
           <>
             {serializedLibrary.length === 0 ? (
-              <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center bg-white border-zinc-200">
+              <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center">
                 <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-300 ring-1 ring-emerald-400/30">
                   <BookOpen className="h-7 w-7" />
                 </span>
                 <div>
-                  <h2 className="text-lg font-semibold text-zinc-900">Your library is empty</h2>
+                  <h2 className="text-lg font-semibold text-zinc-100">Your library is empty</h2>
                   <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-500">
                     You haven't added any books to your library yet. Visit the store to find some great reads.
                   </p>

@@ -30,8 +30,9 @@ const schema = z.object({
   bookId: z.string().max(100).optional(),
   chapterId: z.string().max(100).optional(),
   chapterTitle: z.string().max(200).optional(),
-  provider: z.enum(["openai", "ollama"]).optional().default("ollama"),
-  model: z.string().max(100).optional().default("llama3"),
+  provider: z.enum(["openai", "openrouter"]).optional().default("openai"),
+  model: z.string().max(100).optional().default("gpt-4o-mini"),
+  baseUrl: z.string().max(400).optional(),
   store: z.boolean().optional().default(true),
 });
 
@@ -77,31 +78,30 @@ export async function POST(req: Request) {
     let result = "";
     let tokensUsed = 0;
 
-    if (body.provider === "ollama") {
-      const res = await fetch("http://localhost:11434/api/generate", {
+    if (body.provider === "openrouter") {
+      const baseUrl = (body.baseUrl || "https://openrouter.ai/api/v1").replace(/\/$/, "");
+      const useModel = !body.model || body.model === "llama3" ? "openai/gpt-4o-mini" : body.model;
+      const res = (await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY || ""}`,
+        },
         body: JSON.stringify({
-          model: body.model || "llama3",
-          prompt: userPrompt,
-          system,
+          model: useModel,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: userPrompt },
+          ],
+          max_tokens: 2000,
+          temperature: 0.6,
           stream: false,
-          options: { temperature: 0.6, num_ctx: 4096 },
         }),
-      });
-      if (!res.ok) {
-        try {
-          const fallback = await fallbackOpenAI(body.model, system, userPrompt);
-          result = fallback.text;
-          tokensUsed = fallback.tokens;
-        } catch {
-          throw new Error(`Ollama unavailable (${res.status}). Start Ollama locally or configure OpenAI.`);
-        }
-      } else {
-        const data = await res.json();
-        result = (data.response ?? "").toString().trim();
-        tokensUsed = typeof data.eval_count === "number" ? data.eval_count : approxTokens(result + userPrompt);
-      }
+      })) as Response & { json(): Promise<{ choices: { message: { content?: string } }; usage?: { total_tokens?: number } }> };
+      if (!res.ok) throw new Error(`OpenRouter request failed (${res.status})`);
+      const data = await res.json();
+      result = data.choices?.[0]?.message?.content ?? "";
+      tokensUsed = data.usage?.total_tokens ?? 0;
     } else {
       const fb = await fallbackOpenAI(body.model, system, userPrompt);
       result = fb.text;
@@ -215,9 +215,8 @@ function buildUserPrompt(instructions: string, text: string): string {
 async function fallbackOpenAI(model: string, system: string, user: string) {
   const { default: OpenAI } = await import("openai");
   const openai = new OpenAI();
-  const useModel = !model || model === "llama3" ? "gpt-4o-mini" : model;
   const completion = await openai.chat.completions.create({
-    model: useModel,
+    model: model || "gpt-4o-mini",
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },

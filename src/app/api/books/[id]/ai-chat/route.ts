@@ -12,7 +12,7 @@ const schema = z.object({
   message: z.string().min(1).max(4000),
   chapterTitle: z.string().max(200).optional(),
   chapterId: z.string().max(100).optional(),
-  provider: z.enum(["openai", "ollama"]).optional().default("ollama"),
+  provider: z.enum(["openai", "openrouter"]).optional().default("openai"),
   model: z.string().max(100).optional().default("llama3"),
   baseUrl: z.string().max(400).optional(),
   temperature: z.number().min(0).max(2).optional().default(0.6),
@@ -40,54 +40,36 @@ export async function POST(req: Request, { params }: Params) {
 
 Help the author with their writing. Be creative, specific, and actionable. Keep responses concise but helpful.`;
 
-    if (body.provider === "ollama") {
-      const base = (body.baseUrl || "http://localhost:11434").replace(/\/$/, "");
-      const res = await fetch(`${base}/api/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: body.model || "llama3",
-          prompt: body.message,
-          system: systemPrompt,
-          stream: body.stream,
-          options: {
-            temperature: body.temperature,
-            num_ctx: body.contextWindow,
-          },
-        }),
+    if (body.provider === "openrouter") {
+      const { default: OpenAI } = await import("openai");
+      const openai = new OpenAI({
+        baseURL: (body.baseUrl || "https://openrouter.ai/api/v1").replace(/\/$/, ""),
+        apiKey: process.env.OPENROUTER_API_KEY || "",
       });
-      if (!res.ok) throw new Error("Ollama request failed");
+      const useModel = !body.model || body.model === "llama3" ? "openai/gpt-4o-mini" : body.model;
+      const completion = await openai.chat.completions.create({
+        model: useModel,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: body.message },
+        ],
+        max_tokens: 1500,
+        temperature: body.temperature,
+        stream: body.stream,
+      });
       if (!body.stream) {
-        const data = await res.json();
-        return NextResponse.json({ result: data.response });
+        return NextResponse.json({
+          result: (completion as any).choices?.[0]?.message?.content ?? "No response.",
+        });
       }
-
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("Empty Ollama stream");
-      const decoder = new TextDecoder();
       const stream = new ReadableStream({
         async pull(controller) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              controller.close();
-              return;
-            }
-            const chunk = decoder.decode(value, { stream: true });
-            const outLines = chunk
-              .split("\n")
-              .filter(Boolean)
-              .map((line) => {
-                try {
-                  const obj = JSON.parse(line);
-                  return (obj.response as string) || "";
-                } catch {
-                  return "";
-                }
-              })
-              .join("");
-            if (outLines) controller.enqueue(new TextEncoder().encode(outLines));
+          // @ts-ignore stream is async iterable
+          for await (const part of completion) {
+            const delta = part.choices?.[0]?.delta?.content ?? "";
+            if (delta) controller.enqueue(new TextEncoder().encode(delta));
           }
+          controller.close();
         },
       });
       return new NextResponse(stream, {

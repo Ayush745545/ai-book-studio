@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { ArrowRight } from "@/components/icons";
 
-import { BookCraftAnimation, BookDeliverAnimation } from "@/components/landing-animations";
+import { BookCraftAnimation } from "@/components/landing-animations";
 import { FeatureStack } from "@/components/feature-stack";
 import { TemplateGrid } from "@/components/template-grid";
 
@@ -57,11 +57,11 @@ export default async function LandingPage() {
       {/* ── How it works ─────────────────────────────────────────────── */}
       <section className="section-reveal relative bg-white py-20 sm:py-28">
         <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
-          <h2 className="text-center text-2xl font-bold text-zinc-900 sm:text-4xl mb-3 tracking-tight">
-            From idea to printed book
+          <h2 className="text-center text-4xl sm:text-6xl md:text-7xl font-medium text-zinc-900 mb-3 tracking-tight">
+            <span className="bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 bg-clip-text text-transparent">From idea to printed book</span>
           </h2>
-          <p className="text-center text-sm text-zinc-600 mb-10 max-w-xl mx-auto">
-            Three steps. Zero publishers. Your book, your terms.
+          <p className="text-center text-lg md:text-xl font-medium text-zinc-700 mb-10 max-w-xl mx-auto">
+            <span className="bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 bg-clip-text text-transparent">Three steps. Zero publishers. Your book, your terms.</span>
           </p>
 
           <BookCraftAnimation />
@@ -76,8 +76,8 @@ export default async function LandingPage() {
 
       <section className="section-reveal relative bg-white py-12 sm:py-20">
         <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
-          <h2 className="text-4xl sm:text-6xl font-semibold tracking-tight text-zinc-900 mb-6 leading-[1.05]">
-            Your first chapter is one prompt away
+          <h2 className="text-4xl sm:text-6xl font-medium tracking-tight text-zinc-900 mb-6 leading-[1.05]">
+            <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 bg-clip-text text-transparent">Your first chapter is one prompt away</span>
           </h2>
 
           <p className="text-emerald-600 text-sm font-semibold mb-6 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1.5 border border-emerald-200">
@@ -100,18 +100,6 @@ export default async function LandingPage() {
           </div>
         </div>
       </section>
-
-      {/* ── Delivery Animation (Footer) ────────────────────── */}
-      <section className="section-reveal relative border-t border-white/5 overflow-hidden">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute bottom-0 left-1/3 h-[350px] w-[350px] rounded-full bg-sky-500/10 blur-[120px]" />
-        </div>
-        <div className="relative mx-auto max-w-5xl px-4 py-20 sm:px-6 text-center">
-          <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">Printed &amp; delivered to your door</h3>
-          <p className="text-sm text-zinc-400 mb-8">From your imagination → to a real book on your doorstep, worldwide.</p>
-          <BookDeliverAnimation />
-        </div>
-      </section>
     </div>
   );
 }
@@ -121,14 +109,13 @@ export default async function LandingPage() {
 // Clean step card
 function StepCard({ number, title, description }: { number: string; title: string; description: string }) {
   return (
-    <div className="group relative rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6 backdrop-blur-sm transition-all hover:border-white/[0.15] hover:bg-white/[0.04]">
-      <div className="pointer-events-none absolute -top-16 -right-16 h-40 w-40 rounded-full bg-gradient-to-br from-indigo-500/30 via-violet-500/20 to-transparent opacity-0 blur-2xl transition-opacity group-hover:opacity-100" />
+    <div className="group relative rounded-2xl border border-zinc-200 bg-zinc-50 p-6 transition-all hover:border-zinc-300 hover:bg-white">
       <div className="relative">
-        <p className="bg-gradient-to-br from-indigo-400 via-violet-400 to-fuchsia-400 bg-clip-text text-5xl font-black text-transparent tracking-tight">
+        <p className="bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 bg-clip-text text-transparent text-5xl font-black tracking-tight">
           {number}
         </p>
-        <h3 className="mt-3 text-xl font-semibold text-white tracking-tight">{title}</h3>
-        <p className="mt-2 text-sm text-zinc-400 leading-relaxed">{description}</p>
+        <h3 className="mt-3 text-xl font-bold text-zinc-900 tracking-tight">{title}</h3>
+        <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{description}</p>
       </div>
     </div>
   );

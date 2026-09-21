@@ -14,7 +14,7 @@ import {
   Spinner,
 } from "@/components/icons";
 
-type AiProvider = "openai" | "ollama";
+type AiProvider = "openai" | "openrouter";
 
 const GENRES = [
   "Fantasy",
@@ -64,8 +64,8 @@ export default function NewBookPage() {
       toast("Enter both a genre and some keywords", "error");
       return;
     }
-    if (provider === "ollama" && !model.trim()) {
-      toast("Enter an Ollama model name", "error");
+    if (provider === "openrouter" && !model.trim()) {
+      toast("Enter an OpenRouter model name", "error");
       return;
     }
     setGenerating(true);
@@ -204,16 +204,16 @@ export default function NewBookPage() {
                     className="input"
                   >
                     <option value="openai" className="bg-zinc-900">OpenAI</option>
-                    <option value="ollama" className="bg-zinc-900">Ollama (local)</option>
+                    <option value="openrouter" className="bg-zinc-900">OpenRouter (cloud)</option>
                   </select>
                 </div>
-                {provider === "ollama" && (
+                {provider === "openrouter" && (
                   <div>
-                    <label className="label">Ollama model</label>
+                    <label className="label">OpenRouter model</label>
                     <input
                       value={model}
                       onChange={(e) => setModel(e.target.value)}
-                      placeholder="e.g. qwen3:8b"
+                      placeholder="e.g. openai/gpt-4o-mini"
                       className="input"
                     />
                   </div>

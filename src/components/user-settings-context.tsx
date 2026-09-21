@@ -10,16 +10,16 @@ import {
   type ReactNode,
 } from "react";
 
-export type AiProvider = "ollama" | "openai";
+export type AiProvider = "openai" | "openrouter";
 
 export type UserSettings = {
   displayName: string;
   bio: string;
   aiProvider: AiProvider;
-  ollamaModel: string;
-  ollamaBaseUrl: string;
   openAIModel: string;
   openAIBaseUrl: string;
+  openRouterModel: string;
+  openRouterBaseUrl: string;
   temperature: number;
   contextWindow: number;
   autoSave: boolean;
@@ -28,11 +28,11 @@ export type UserSettings = {
 const DEFAULTS: UserSettings = {
   displayName: "",
   bio: "",
-  aiProvider: "ollama",
-  ollamaModel: "llama3",
-  ollamaBaseUrl: "http://localhost:11434",
+  aiProvider: "openai",
   openAIModel: "gpt-4o-mini",
   openAIBaseUrl: "https://api.openai.com/v1",
+  openRouterModel: "",
+  openRouterBaseUrl: "https://openrouter.ai/api/v1",
   temperature: 0.6,
   contextWindow: 4096,
   autoSave: true,
@@ -48,6 +48,8 @@ type UserSettingsContextValue = {
   effectiveModel: string;
   effectiveBaseUrl: string;
   applyToPayload: (body: Record<string, unknown>) => Record<string, unknown>;
+  availableModels: string[];
+  setAvailableModels: (models: string[]) => void;
 };
 
 const UserSettingsContext = createContext<UserSettingsContextValue | null>(null);
@@ -65,6 +67,8 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
     }
   });
 
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
@@ -81,12 +85,12 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
 
   const effectiveProvider = settings.aiProvider;
   const effectiveModel =
-    effectiveProvider === "ollama"
-      ? settings.ollamaModel || DEFAULTS.ollamaModel
+    effectiveProvider === "openrouter"
+      ? settings.openRouterModel || DEFAULTS.openRouterModel
       : settings.openAIModel || DEFAULTS.openAIModel;
   const effectiveBaseUrl =
-    effectiveProvider === "ollama"
-      ? settings.ollamaBaseUrl || DEFAULTS.ollamaBaseUrl
+    effectiveProvider === "openrouter"
+      ? settings.openRouterBaseUrl || DEFAULTS.openRouterBaseUrl
       : settings.openAIBaseUrl || DEFAULTS.openAIBaseUrl;
 
   const applyToPayload = useCallback(
@@ -112,8 +116,10 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
       effectiveModel,
       effectiveBaseUrl,
       applyToPayload,
+      availableModels,
+      setAvailableModels,
     }),
-    [settings, setSettings, resetSettings, effectiveProvider, effectiveModel, effectiveBaseUrl, applyToPayload]
+    [settings, setSettings, resetSettings, effectiveProvider, effectiveModel, effectiveBaseUrl, applyToPayload, availableModels]
   );
 
   return (
@@ -135,8 +141,8 @@ export function useSafeUserSettings(): UserSettingsContextValue {
   const ctx = useContext(UserSettingsContext);
   const fallback = useMemo<UserSettingsContextValue>(() => {
     const effectiveProvider = DEFAULTS.aiProvider;
-    const effectiveModel = DEFAULTS.ollamaModel;
-    const effectiveBaseUrl = DEFAULTS.ollamaBaseUrl;
+    const effectiveModel = DEFAULTS.openAIModel;
+    const effectiveBaseUrl = DEFAULTS.openAIBaseUrl;
     return {
       settings: DEFAULTS,
       setSettings: () => {},
@@ -152,6 +158,8 @@ export function useSafeUserSettings(): UserSettingsContextValue {
         baseUrl: effectiveBaseUrl,
         ...body,
       }),
+      availableModels: [],
+      setAvailableModels: () => {},
     };
   }, []);
   return ctx ?? fallback;

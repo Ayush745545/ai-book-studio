@@ -180,8 +180,8 @@ model AiEdit {
   prompt     String?
   beforeText String       @db.Text
   afterText  String       @db.Text
-  provider   String       @default("ollama")
-  model      String       @default("llama3")
+  provider   String       @default("openai")
+  model      String       @default("gpt-4o-mini")
   tokensUsed Int          @default(0)
   accepted   Boolean      @default(false)
   createdAt  DateTime     @default(now())

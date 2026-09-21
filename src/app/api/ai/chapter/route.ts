@@ -14,7 +14,7 @@ const schema = z.object({
   chapterTitle: z.string().min(1).max(200),
   outline: z.string().max(4000).default(""),
   tone: z.string().max(50).default("engaging"),
-  provider: z.enum(["openai", "ollama"]).optional(),
+  provider: z.enum(["openai", "openrouter"]).optional(),
   model: z.string().min(1).max(100).optional(),
 });
 

@@ -19,7 +19,7 @@ const FEATURES = [
     tag: "02 · Writing",
     title: "Chapter writing that actually reads human",
     text: "Draft full ~1,200-word chapters from an outline and tone of voice. Voice is preserved across every chapter so your book reads like one author, not a patchwork.",
-    pills: ["Ollama / GPT-4o", "Interactive Editing", "Consistent Voice"],
+    pills: ["OpenAI / OpenRouter", "Interactive Editing", "Consistent Voice"],
     accent: "from-indigo-500 via-violet-500 to-purple-500",
     accentSoft: "bg-indigo-500/10",
     iconBg: "from-indigo-500 to-violet-500",
@@ -182,31 +182,7 @@ function Mockup({ kind, accent }: { kind: MockupKind; accent: string }) {
   if (kind === "cover") {
     return (
       <div className="relative w-full h-full card-fx rounded-[1.75rem] overflow-hidden border border-white/5 backdrop-blur-md bg-black/30 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Covers · Variant 3 / 9</p>
-          <button className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300">↻ Regenerate</button>
-        </div>
-        <div className="grid grid-cols-4 gap-2.5 h-[calc(100%-2.5rem)]">
-          {[1,2,3,4].map(n => (
-            <div key={n} className={`group relative rounded-xl overflow-hidden border ${n === 3 ? `ring-2 ring-offset-2 ring-offset-black ring-pink-500/70 border-pink-500/40 scale-[1.02]` : 'border-white/10 hover:border-white/20'} transition-all`}>
-              <div className={`absolute inset-0 bg-gradient-to-br ${
-                n === 1 ? 'from-amber-700 via-orange-600 to-rose-700' :
-                n === 2 ? 'from-emerald-700 via-teal-700 to-indigo-800' :
-                n === 3 ? 'from-slate-800 via-indigo-900 to-fuchsia-900' :
-                         'from-violet-700 via-purple-700 to-indigo-900'
-              }`} />
-              <div className="relative h-full flex flex-col items-center justify-between p-3 text-center">
-                <p className="text-[8px] text-white/60 tracking-widest uppercase">AI Book Studio</p>
-                <div>
-                  <p className="text-[10px] font-bold text-white leading-tight drop-shadow-lg">The Cartographer's</p>
-                  <p className="text-[10px] font-bold text-white/80 leading-tight mb-1.5">Paradox</p>
-                </div>
-                <div className="h-0.5 w-5 bg-white/60 rounded-full mb-0.5" />
-              </div>
-              {n === 3 && <span className="absolute top-1 right-1 rounded-md bg-pink-500 text-white text-[8px] font-bold px-1 py-0.5">● LIVE</span>}
-            </div>
-          ))}
-        </div>
+        <img src="/covers/books.png" alt="The Cartographer's Paradox — AI generated book cover" className="w-full h-full object-contain rounded-xl" />
       </div>
     );
   }
@@ -271,7 +247,7 @@ function Mockup({ kind, accent }: { kind: MockupKind; accent: string }) {
         ].map((s, i, arr) => (
           <div key={i} className="flex gap-4 items-start">
             <div className="flex flex-col items-center shrink-0 w-6">
-              <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold ${s.ok ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-amber-500 text-white shadow-lg shadow-amber-500/30 animate-pulse'}`}>
+                <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold ${s.ok ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-amber-500 text-white shadow-lg shadow-amber-500/30 animate-pulse'}`}>
                 {s.ok ? '✓' : '●'}
               </div>
               {i < arr.length - 1 && <div className={`w-0.5 h-10 ${s.ok ? 'bg-emerald-500/40' : 'bg-white/10'}`} />}
@@ -344,7 +320,6 @@ function FeatureRow({ feature, index }: { feature: typeof FEATURES[number]; inde
 
       {/* Mockup */}
       <div className={`order-1 md:order-${flipped ? '1' : '2'} md:col-span-7 relative`}>
-        <div className={`pointer-events-none absolute -inset-6 rounded-[2.5rem] opacity-40 blur-2xl bg-gradient-to-br ${feature.accent}`} />
         <div className="relative min-h-[380px] md:h-[420px]">
           <Mockup kind={feature.mockup} accent={feature.accent} />
         </div>
@@ -357,31 +332,21 @@ function FeatureRow({ feature, index }: { feature: typeof FEATURES[number]; inde
 export function FeatureStack() {
   return (
     <section className="relative overflow-hidden">
-      {/* Subtle decorative layered over WebGL background */}
-      <div className="pointer-events-none absolute inset-0 opacity-60">
-        <div className="absolute top-[10%] left-0 h-[400px] w-[400px] rounded-full bg-indigo-500/10 blur-[130px]" />
-        <div className="absolute top-[45%] right-0 h-[400px] w-[400px] rounded-full bg-fuchsia-500/8 blur-[130px]" />
-        <div className="absolute bottom-[10%] left-1/4 h-[380px] w-[380px] rounded-full bg-amber-500/6 blur-[130px]" />
-      </div>
 
       <div className="relative mx-auto w-full max-w-7xl px-5 sm:px-8 py-20 md:py-28">
 
         {/* Header */}
         <div className="text-center max-w-4xl mx-auto mb-24 md:mb-32">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-1.5 mb-7 backdrop-blur-sm">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-4 py-1.5 mb-7">
             <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-indigo-400 via-violet-400 to-fuchsia-400 animate-pulse" />
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
               AI Book Studio · Platform
             </span>
           </span>
-          <h2 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.02] mb-7">
-            <span className="bg-gradient-to-br from-indigo-400 via-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-              All-in-One
-            </span>
+          <h2 className="text-4xl sm:text-6xl md:text-7xl font-medium tracking-tight leading-[1.02] mb-7">
+            <span className="bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 bg-clip-text text-transparent">All-in-One</span>
             <br />
-            <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent">
-              Everything you need to publish
-            </span>
+            <span className="bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">Everything you need to publish</span>
           </h2>
           <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed">
             Six tools, one workflow — from the first spark of an idea to a shipped paperback on your readers' doorsteps.

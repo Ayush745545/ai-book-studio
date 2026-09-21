@@ -11,6 +11,8 @@ import {
   RotateCcw,
   Sparkles,
   Check,
+  Loader2,
+  RefreshCw,
 } from "@/components/icons";
 import { useToast } from "@/components/ui/toast";
 
@@ -28,12 +30,40 @@ export default function SettingsPage() {
     effectiveProvider,
     effectiveModel,
     effectiveBaseUrl,
+    availableModels,
+    setAvailableModels,
   } = useUserSettings();
 
   const [savedFlash, setSavedFlash] = useState(false);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [modelFetchError, setModelFetchError] = useState<string | null>(null);
   const flash = () => {
     setSavedFlash(true);
     window.setTimeout(() => setSavedFlash(false), 1400);
+  };
+
+  const fetchModels = async () => {
+    if (settings.aiProvider !== "openrouter") return;
+    setFetchingModels(true);
+    setModelFetchError(null);
+    try {
+      const base = (settings.openRouterBaseUrl || "https://openrouter.ai/api/v1").replace(/\/+$/, "");
+      const res = await fetch(`${base}/models`, {
+        headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ""}` },
+      });
+      if (!res.ok) throw new Error(`Failed to fetch models (${res.status})`);
+      const data = (await res.json()) as { data?: { id?: string }[] };
+      const models = (data.data ?? []).map((m) => m.id ?? "").filter(Boolean);
+      if (models.length === 0) {
+        setModelFetchError("No models found. Check your API key and connection.");
+      } else {
+        setAvailableModels(models);
+      }
+    } catch (e) {
+      setModelFetchError(e instanceof Error ? e.message : "Failed to fetch models");
+    } finally {
+      setFetchingModels(false);
+    }
   };
 
   const save = (patch: Record<string, unknown>) => {
@@ -117,9 +147,9 @@ export default function SettingsPage() {
               Tip
             </p>
             <p className="text-sm leading-relaxed text-zinc-400">
-              Pick <span className="font-medium text-white">Ollama</span> for fully local,
-              privacy-first writing — or <span className="font-medium text-white">OpenAI</span> if
-              you want cloud quality. Settings are saved in your browser.
+              Pick <span className="font-medium text-white">OpenAI</span> for cloud quality or
+              <span className="font-medium text-white"> OpenRouter</span> to access hundreds of
+              models (OpenAI, Anthropic, Google and more). Settings are saved in your browser.
             </p>
           </div>
         </aside>
@@ -173,7 +203,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-1.5">
-              {(["ollama", "openai"] as AiProvider[]).map((p) => (
+              {(["openai", "openrouter"] as AiProvider[]).map((p) => (
                 <button
                   key={p}
                   onClick={() => save({ aiProvider: p })}
@@ -183,33 +213,75 @@ export default function SettingsPage() {
                       : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  {p === "ollama" ? "🦙 Ollama (local)" : "🤖 OpenAI (cloud)"}
+                  {p === "openai" ? "🤖 OpenAI" : "🌐 OpenRouter"}
                 </button>
               ))}
             </div>
 
-            {settings.aiProvider === "ollama" ? (
+            {settings.aiProvider === "openrouter" ? (
               <div className="space-y-4">
-                <Field label="Ollama model" hint="e.g. llama3, qwen2.5, mistral, gemma2">
+                <Field label="OpenRouter base URL" hint="Default: https://openrouter.ai/api/v1">
                   <input
                     type="text"
-                    value={settings.ollamaModel}
-                    onChange={(e) => setSettings({ ollamaModel: e.target.value })}
-                    onBlur={(e) => save({ ollamaModel: e.target.value })}
-                    placeholder="llama3"
+                    value={settings.openRouterBaseUrl}
+                    onChange={(e) => setSettings({ openRouterBaseUrl: e.target.value })}
+                    onBlur={(e) => save({ openRouterBaseUrl: e.target.value })}
+                    placeholder="https://openrouter.ai/api/v1"
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 font-mono text-sm text-white placeholder-zinc-500 outline-none transition focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-400/30"
                   />
                 </Field>
-                <Field label="Ollama base URL" hint="Default: http://localhost:11434">
+                <Field label="OpenRouter model" hint="e.g. openai/gpt-4o-mini, anthropic/claude-3-sonnet, google/gemini-1.5-pro">
                   <input
                     type="text"
-                    value={settings.ollamaBaseUrl}
-                    onChange={(e) => setSettings({ ollamaBaseUrl: e.target.value })}
-                    onBlur={(e) => save({ ollamaBaseUrl: e.target.value })}
-                    placeholder="http://localhost:11434"
+                    value={settings.openRouterModel}
+                    onChange={(e) => setSettings({ openRouterModel: e.target.value })}
+                    onBlur={(e) => save({ openRouterModel: e.target.value })}
+                    placeholder="openai/gpt-4o-mini"
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 font-mono text-sm text-white placeholder-zinc-500 outline-none transition focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-400/30"
                   />
                 </Field>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={fetchModels}
+                    disabled={fetchingModels}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm font-medium text-white transition hover:bg-white/10 disabled:opacity-50"
+                  >
+                    {fetchingModels ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    )}
+                    Fetch available models
+                  </button>
+                </div>
+                {modelFetchError && (
+                  <p className="text-xs text-red-400">{modelFetchError}</p>
+                )}
+                {availableModels.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                      Available models ({availableModels.length})
+                    </p>
+                    <div className="max-h-40 overflow-y-auto rounded-xl border border-white/5 bg-white/[0.02] p-1.5 space-y-0.5">
+                      {availableModels.map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => {
+                            setSettings({ openRouterModel: m });
+                            save({ openRouterModel: m });
+                          }}
+                          className={`w-full rounded-lg px-2.5 py-1.5 text-left text-xs font-mono transition ${
+                            settings.openRouterModel === m
+                              ? "bg-indigo-500/15 text-indigo-300 ring-1 ring-indigo-400/30"
+                              : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
@@ -233,18 +305,9 @@ export default function SettingsPage() {
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 font-mono text-sm text-white placeholder-zinc-500 outline-none transition focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-400/30"
                   />
                 </Field>
-                <Field
-                  label="OpenAI API key"
-                  hint={`Saved to NEXT_PUBLIC_OPENAI_API_KEY on your server. ${
-                    typeof window !== "undefined" &&
-                    (window as any).__NEXT_DATA__?.props?.pageProps || ""
-                      ? ""
-                      : ""
-                  }Stored in your system environment, not in the browser.`}
-                >
+                <Field label="OpenAI API key" hint="Read from your server environment. Stored securely, never in the browser.">
                   <div className="rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-xs text-zinc-400">
-                    API keys are read from your server environment variables. They never appear in
-                    the browser or in settings UI.
+                    API keys are read from your server environment variables. They never appear in the browser or in settings UI.
                   </div>
                 </Field>
               </div>
@@ -269,7 +332,7 @@ export default function SettingsPage() {
               </Field>
               <Field
                 label={`Context window · ${settings.contextWindow.toLocaleString()}`}
-                hint="Token context used for local Ollama generations."
+                hint="Token context used for generations."
               >
                 <input
                   type="range"

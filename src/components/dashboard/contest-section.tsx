@@ -112,43 +112,43 @@ export function ContestSection({ books }: { books: BookOption[] }) {
   const lastWinner = state?.past.find((p) => p.winner);
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm mt-10 px-6 py-6">
+    <section className="rounded-2xl border border-white/10 bg-white/[0.03] shadow-sm mt-10 px-6 py-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400/20 to-orange-500/20 text-amber-600 ring-1 ring-amber-400/30">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400/20 to-orange-500/20 text-amber-500 ring-1 ring-amber-500/30">
             <Star className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-zinc-900">Writer of the Week</h2>
-            <p className="mt-0.5 max-w-xl text-sm text-zinc-600">
-              Enter a published book for{" "}
-              <span className="font-semibold text-zinc-700">
-                {state ? `${state.symbol}${state.fee}` : "…"}
-              </span>
-              . At the end of the week one writer is announced automatically and
-              the whole pot is transferred to them. Anyone can also open their
-              own pool on{" "}
-              <Link href="/pools" className="font-semibold text-indigo-600 hover:underline">
-                Pools
-              </Link>.
+          <h2 className="text-lg font-semibold text-zinc-100">Writer of the Week</h2>
+          <p className="mt-0.5 max-w-xl text-sm text-zinc-400">
+            Enter a published book for{" "}
+            <span className="font-semibold text-zinc-300">
+              {state ? `${state.symbol}${state.fee}` : "…"}
+            </span>
+            . At the end of the week one writer is announced automatically and
+            the whole pot is transferred to them. Anyone can also open their
+            own pool on{" "}
+            <Link href="/pools" className="font-semibold text-indigo-400 hover:underline">
+              Pools
+            </Link>.
             </p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-zinc-900">
+          <p className="text-2xl font-bold text-zinc-100">
             {state ? `${state.symbol}${state.contest.potAmount.toLocaleString()}` : "…"}
           </p>
           <p className="text-xs uppercase tracking-wider text-zinc-500">
             pot · {paidCount} {paidCount === 1 ? "entry" : "entries"}
           </p>
           {state?.contest.status === "OPEN" && (
-            <p className="mt-1 text-[11px] font-semibold text-amber-600">{countdown}</p>
+            <p className="mt-1 text-[11px] font-semibold text-amber-500">{countdown}</p>
           )}
         </div>
       </div>
 
       {lastWinner && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-2.5 text-sm text-amber-800">
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-300">
           <Star className="h-4 w-4" />
           <span>
             Last winner:{" "}
@@ -166,7 +166,7 @@ export function ContestSection({ books }: { books: BookOption[] }) {
         <select
           value={bookId}
           onChange={(e) => setBookId(e.target.value)}
-          className="h-9 min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-indigo-500 sm:max-w-xs"
+          className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none focus:border-indigo-400/60 sm:max-w-xs"
         >
           <option value="">
             {publishable.length ? "Pick a book to enter…" : "No publishable books left"}
@@ -206,8 +206,8 @@ export function ContestSection({ books }: { books: BookOption[] }) {
               title={`entered by ${e.user.name ?? e.user.email}`}
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
                 e.status === "PAID"
-                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-700"
-                  : "border-zinc-300 bg-zinc-100 text-zinc-600"
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                  : "border-white/10 bg-white/5 text-zinc-400"
               }`}
             >
               <CreditCard className="h-3 w-3" />
@@ -219,8 +219,8 @@ export function ContestSection({ books }: { books: BookOption[] }) {
       )}
 
       {state && state.past.length > 1 && (
-        <details className="mt-4 text-sm text-zinc-600">
-          <summary className="cursor-pointer select-none hover:text-zinc-900">
+        <details className="mt-4 text-sm text-zinc-400">
+          <summary className="cursor-pointer select-none hover:text-zinc-200">
             Past winners
           </summary>
           <ul className="mt-2 space-y-1">
@@ -229,7 +229,7 @@ export function ContestSection({ books }: { books: BookOption[] }) {
                 {new Date(p.weekStart).toLocaleDateString()} —{" "}
                 {p.winner ? (
                   <>
-                    <b className="text-zinc-900">{p.winner.name ?? p.winner.email}</b>{" "}
+                    <b className="text-zinc-200">{p.winner.name ?? p.winner.email}</b>{" "}
                     won {currencySymbolFor(p.currency)}
                     {p.potAmount.toLocaleString()} ({p.payoutStatus ?? "—"})
                   </>
@@ -242,7 +242,7 @@ export function ContestSection({ books }: { books: BookOption[] }) {
         </details>
       )}
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
     </section>
   );
 }

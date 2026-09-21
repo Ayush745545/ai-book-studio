@@ -11,7 +11,7 @@ export const maxDuration = 60;
 const schema = z.object({
   genre: z.string().min(1, "Genre is required").max(100),
   keywords: z.string().min(1, "Keywords are required").max(500),
-  provider: z.enum(["openai", "ollama"]).optional(),
+  provider: z.enum(["openai", "openrouter"]).optional(),
   model: z.string().min(1).max(100).optional(),
 });
 

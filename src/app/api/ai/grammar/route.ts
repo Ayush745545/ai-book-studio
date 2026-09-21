@@ -10,7 +10,7 @@ export const maxDuration = 120;
 
 const schema = z.object({
   text: z.string().min(1, "Nothing to check").max(50000),
-  provider: z.enum(["openai", "ollama"]).optional(),
+  provider: z.enum(["openai", "openrouter"]).optional(),
   model: z.string().min(1).max(100).optional(),
 });
 

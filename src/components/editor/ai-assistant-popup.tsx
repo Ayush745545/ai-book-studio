@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/client";
 import { useToast } from "@/components/ui/toast";
 import { useSafeUserSettings } from "@/components/user-settings-context";
@@ -54,6 +54,54 @@ export function AIAssistantPopup({
         "Hi, I'm your AI writing assistant. Tell me what you'd like to write, improve, or brainstorm. You can also ask me to continue a chapter, fix the pacing, or give you alternate versions. Try the quick ideas below 👇",
     },
   ]);
+
+  const [pos, setPos] = useState({ left: 0, top: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0, left: 0, top: 0 });
+  const hasAnimated = useRef(false);
+
+  useEffect(() => {
+    setPos({ left: window.innerWidth - 494, top: 80 });
+    hasAnimated.current = false;
+  }, []);
+
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return;
+      const target = e.target as HTMLElement;
+      if (target.closest("button, a, textarea, input")) return;
+      e.preventDefault();
+      hasAnimated.current = true;
+      setIsDragging(true);
+      dragStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        left: pos.left,
+        top: pos.top,
+      };
+    },
+    [pos.left, pos.top]
+  );
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const onMove = (e: MouseEvent) => {
+      const d = dragStartRef.current;
+      const newLeft = d.left + (e.clientX - d.x);
+      const newTop = d.top + (e.clientY - d.y);
+      setPos({
+        left: Math.max(0, Math.min(window.innerWidth - 470, newLeft)),
+        top: Math.max(0, Math.min(window.innerHeight - 640, newTop)),
+      });
+    };
+    const onUp = () => setIsDragging(false);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [isDragging]);
 
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -191,7 +239,7 @@ export function AIAssistantPopup({
             ? {
                 ...m,
                 text:
-                  "⚠️ Couldn't reach the AI. If you're using Ollama, make sure it's running locally (`ollama run llama3`). If you're using OpenAI, check your API key.",
+                  "⚠️ Couldn't reach the AI. If you're using OpenAI, check your API key. If you're using OpenRouter, check your API key.",
               }
             : m
         )
@@ -203,7 +251,15 @@ export function AIAssistantPopup({
   }
 
   return (
-    <div className="fixed right-6 top-20 z-[100] flex h-[640px] w-[470px] max-w-[92vw] flex-col overflow-hidden rounded-[26px] border border-white/60 bg-white shadow-[0_30px_90px_-30px_rgba(79,70,229,0.55),0_15px_40px_-15px_rgba(30,27,75,0.35),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl animate-slidein">
+    <div
+      className={`fixed z-[100] flex h-[640px] w-[470px] max-w-[92vw] flex-col overflow-hidden rounded-[26px] border border-white/60 bg-white shadow-[0_30px_90px_-30px_rgba(79,70,229,0.55),0_15px_40px_-15px_rgba(30,27,75,0.35),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl ${!hasAnimated.current ? "animate-slidein" : ""} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+      style={{
+        left: `${pos.left}px`,
+        top: `${pos.top}px`,
+      }}
+      onMouseDown={handleDragStart}
+      data-lenis-prevent
+    >
       <style>{`
         @keyframes slidein {
           from { opacity: 0; transform: translateX(16px) translateY(-8px) scale(.98); }
@@ -231,7 +287,7 @@ export function AIAssistantPopup({
                 </p>
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-white px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 shadow-sm ring-1 ring-inset ring-white/60">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,.9)]" />
-                  {provider === "ollama" ? "Local · Ollama" : "OpenAI"}
+                  {provider === "openrouter" ? "Cloud · OpenRouter" : "OpenAI"}
                 </span>
               </div>
               <p className="mt-0.5 truncate text-[12px] text-zinc-500">
@@ -264,7 +320,7 @@ export function AIAssistantPopup({
             </span>
             <div className="min-w-0">
               <p className="truncate text-[12px] font-semibold text-zinc-800">
-                {provider === "ollama" ? "🦙 Ollama" : "✨ OpenAI"} · <span className="font-mono text-zinc-700">{model}</span>
+                {provider === "openrouter" ? "🌐 OpenRouter" : "✨ OpenAI"} · <span className="font-mono text-zinc-700">{model}</span>
               </p>
               <p className="truncate text-[10px] text-zinc-500">
                 {userSettings.settings.temperature.toFixed(2)} temp ·{" "}
