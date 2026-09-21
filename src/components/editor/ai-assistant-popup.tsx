@@ -498,7 +498,7 @@ function ChatRow({
               muted
               loop
               playsInline
-              className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white shadow-[0_0_16px_rgba(99,102,241,.75)]"
+              className="h-24 w-24 shrink-0 rounded-full object-cover ring-2 ring-white shadow-[0_0_20px_rgba(99,102,241,.8)]"
             />
             <span className="text-[12px] font-medium text-zinc-500">AI is thinking…</span>
           </div>
