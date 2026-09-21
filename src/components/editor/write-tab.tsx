@@ -33,9 +33,10 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
   const [adding, setAdding] = useState(false);
   const [showAI, setShowAI] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [autoSaved, setAutoSaved] = useState(false);
+  const [autoSaved, setAutoSaved] = useState(true);
   const { settings } = useUserSettings();
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const seen = localStorage.getItem("aibookstudio-tutorial-seen");
@@ -44,13 +45,18 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
 
   const active = useMemo(() => chapters.find((c) => c.id === activeId) ?? null, [chapters, activeId]);
 
+  // Only reload the editor when the active chapter *id* changes — not on every
+  // refreshBook() round-trip, which would clobber in-flight edits with stale
+  // server data and defeat the autosave timer.
+  const loadedChapterIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (active) {
+    if (active && active.id !== loadedChapterIdRef.current) {
+      loadedChapterIdRef.current = active.id;
       setTitle(active.title);
       setContent(active.content);
       setDirty(false);
     }
-  }, [active]);
+  }, [active?.id]);
 
   async function addChapter() {
     setAdding(true);
@@ -96,6 +102,37 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
 
   const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
 
+  const saveNow = async () => {
+    if (!active || saving) return;
+    setSaving(true);
+    try {
+      await apiFetch(`/api/chapters/${active.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ title, content }),
+      });
+      setDirty(false);
+      setAutoSaved(true);
+      toast("Saved", "success");
+    } catch (e) {
+      setAutoSaved(false);
+      toast("Save failed", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Ctrl/Cmd+S → save instantly (and prevent the browser's save dialog).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        saveNow();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [saveNow]);
+
   const [selPopup, setSelPopup] = useState<{
     text: string;
     start: number;
@@ -113,14 +150,18 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
       });
       setDirty(false);
       setAutoSaved(true);
-      await refreshBook();
+      // Don't call refreshBook() here — it would re-trigger the save effect
+      // via the chapters state and create a save loop. The parent component
+      // re-reads the chapter on navigation / next chapter switch instead.
     } catch (e) {
       setAutoSaved(false);
+      toast("Auto-save failed", "error");
     } finally {
       setSaving(false);
     }
   }
 
+  // Debounced auto-save — fires 1500ms after the user stops typing.
   useEffect(() => {
     if (!dirty) {
       setAutoSaved(true);
@@ -129,11 +170,12 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
       runAutoSave();
-    }, 2000);
+    }, 1500);
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [dirty, title, content, active]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, title, content]);
 
   useEffect(() => {
     return () => {
@@ -380,6 +422,19 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
                 <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" /> Unsaved
               </span>
             ) : null}
+            <button
+              onClick={saveNow}
+              disabled={saving || !dirty}
+              title="Save now (Ctrl/Cmd+S)"
+              className={`ml-2 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                dirty
+                  ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                  : "bg-zinc-100 text-zinc-400 cursor-not-allowed"
+              }`}
+            >
+              {saving ? <Spinner className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+              {saving ? "Saving…" : "Save"}
+            </button>
               <button className="hover:text-zinc-800 transition" title="Zoom Out"><ArrowLeft className="h-4 w-4" /></button>
               <button className="hover:text-zinc-800 transition" title="Split Screen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
               <button
