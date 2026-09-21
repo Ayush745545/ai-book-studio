@@ -297,6 +297,17 @@ return (
         }
         .animate-slidein { animation: slidein .26s cubic-bezier(.2,1.05,.36,1); }
         .grain { background-image: radial-gradient(rgba(255,255,255,.18) 1px, transparent 1px); background-size: 3px 3px; }
+        @keyframes think-spin {
+          to { transform: rotate(360deg); }
+        }
+        .think-circle {
+          width: 10px; height: 10px;
+          border-radius: 9999px;
+          border: 2px solid rgba(129,140,248,.25);
+          border-top-color: #6366f1;
+          animation: think-spin .7s linear infinite;
+          box-shadow: 0 0 8px rgba(99,102,241,.5);
+        }
       `}</style>
 
       {/* Drag handle — only the header strip is draggable, so clicking inside
@@ -491,10 +502,9 @@ function ChatRow({
         }`}
       >
         {isEmpty ? (
-          <div className="flex items-center gap-1.5 py-0.5">
-            <span className="h-2 w-2 animate-bounce rounded-full bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,.8)]" style={{ animationDelay: "0s" }} />
-            <span className="h-2 w-2 animate-bounce rounded-full bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,.8)]" style={{ animationDelay: ".15s" }} />
-            <span className="h-2 w-2 animate-bounce rounded-full bg-fuchsia-400 shadow-[0_0_6px_rgba(232,121,249,.8)]" style={{ animationDelay: ".3s" }} />
+          <div className="flex items-center gap-2 py-0.5">
+            <span className="think-circle" />
+            <span className="text-[11px] font-medium text-zinc-400">AI is thinking…</span>
           </div>
         ) : (
           <>{display}</>
