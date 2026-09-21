@@ -5,7 +5,7 @@ import type { SerializedBook, SerializedChapter, ChapterType } from "@/types";
 import { apiFetch } from "@/lib/client";
 import { useToast } from "@/components/ui/toast";
 import { useUserSettings } from "@/components/user-settings-context";
-import { Plus, Spinner, Trash, Wand, X, Check, GripVertical, FileText, ArrowLeft, ArrowRight } from "@/components/icons";
+import { Plus, Spinner, Trash, X, Check, GripVertical, FileText, ArrowLeft, ArrowRight } from "@/components/icons";
 import { OnboardingTutorial } from "./onboarding-tutorial";
 import { AIAssistantPopup } from "./ai-assistant-popup";
 import { SelectionAiPopup } from "./selection-ai-popup";
@@ -467,10 +467,17 @@ export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
 
           <button
             onClick={() => setShowAI(!showAI)}
-            className="px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-indigo-50 text-indigo-500 hover:bg-indigo-100 border border-indigo-100"
+            className="ai-fab-video flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white shadow-[0_8px_24px_-8px_rgba(99,102,241,.8)] transition hover:scale-[1.06] active:scale-95"
             title="AI Assistant"
           >
-            <Wand className="h-3.5 w-3.5" /> AI Assistant
+            <video
+              src="/covers/Untitled - September 21, 2026 at 18.21.22.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="h-full w-full object-cover"
+            />
           </button>
         </div>
 
