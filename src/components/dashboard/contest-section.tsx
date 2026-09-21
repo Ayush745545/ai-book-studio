@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { apiFetch } from "@/lib/client";
 import { useToast } from "@/components/ui/toast";
 import { Star, Plus, Spinner, CreditCard, Users } from "@/components/icons";
@@ -126,11 +125,7 @@ export function ContestSection({ books }: { books: BookOption[] }) {
               {state ? `${state.symbol}${state.fee}` : "…"}
             </span>
             . At the end of the week one writer is announced automatically and
-            the whole pot is transferred to them. Anyone can also open their
-            own pool on{" "}
-            <Link href="/pools" className="font-semibold text-indigo-400 hover:underline">
-              Pools
-            </Link>.
+            the whole pot is transferred to them.
             </p>
           </div>
         </div>

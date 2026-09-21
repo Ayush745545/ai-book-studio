@@ -33,6 +33,8 @@ export interface SerializedChapter {
 export interface SerializedCoverImage {
   id: string;
   url: string;
+  data?: string | null;
+  mimeType?: string | null;
   source: CoverSource;
   side: CoverSide;
   createdAt: string;

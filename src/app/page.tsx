@@ -81,7 +81,7 @@ export default async function LandingPage() {
           </h2>
 
           <p className="text-emerald-600 text-sm font-semibold mb-6 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1.5 border border-emerald-200">
-            ✓ Available on AI Book Studio & Export to PDF
+            ✓ Available & Export to PDF
           </p>
 
           <div className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm text-zinc-600 font-medium mb-12 justify-center">

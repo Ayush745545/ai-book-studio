@@ -51,6 +51,8 @@ export function serializeBook(b: BookWithExtras): SerializedBook {
           coverImages: b.coverImages.map((cover) => ({
             id: cover.id,
             url: cover.url,
+            data: cover.data ?? null,
+            mimeType: cover.mimeType ?? null,
             source: cover.source,
             side: cover.side,
             createdAt: toIsoString(cover.createdAt),

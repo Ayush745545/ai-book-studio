@@ -340,7 +340,7 @@ export function FeatureStack() {
           <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-4 py-1.5 mb-7">
             <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-indigo-400 via-violet-400 to-fuchsia-400 animate-pulse" />
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-              AI Book Studio · Platform
+              Platform
             </span>
           </span>
           <h2 className="text-4xl sm:text-6xl md:text-7xl font-medium tracking-tight leading-[1.02] mb-7">

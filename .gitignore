@@ -38,6 +38,3 @@ next-env.d.ts
 
 # Prisma
 /prisma/dev.db*
-
-# Generated local cover uploads
-/public/covers/

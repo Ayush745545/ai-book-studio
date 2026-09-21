@@ -70,7 +70,7 @@ export function TemplateGrid() {
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </span>
-          Try AI Book Studio free
+          Try free
         </button>
       </div>
 

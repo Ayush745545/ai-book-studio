@@ -37,7 +37,7 @@ export default async function StorePage() {
           The Bookstore
         </h1>
         <p className="mx-auto mt-2 max-w-xl text-sm text-zinc-500">
-          Published books from the AI Book Studio community — order a printed
+          Published books from the community — order a printed
           paperback, shipped print-on-demand via Lulu.
         </p>
       </div>

@@ -46,15 +46,8 @@ export async function DELETE(_req: Request, { params }: Params) {
     if (!book) return notFound("Book");
     if (book.authorId !== user.id && user.role !== "ADMIN") return forbidden();
 
-    // Delete cover image files if they're local
-    const covers = await prisma.coverImage.findMany({ where: { bookId: book.id } });
-    for (const cover of covers) {
-      if (cover.url.startsWith("/covers/")) {
-        const { unlink } = await import("fs/promises");
-        const { join } = await import("path");
-        await unlink(join(process.cwd(), "public", cover.url.slice(1))).catch(() => undefined);
-      }
-    }
+    // Delete cover image records if they're local
+    await prisma.coverImage.deleteMany({ where: { bookId: book.id } });
 
     await prisma.book.delete({ where: { id: book.id } });
 

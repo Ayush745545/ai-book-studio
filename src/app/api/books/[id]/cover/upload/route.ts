@@ -1,6 +1,3 @@
-import { randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import { join } from "path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -48,15 +45,25 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ error: "Cover images must be 10MB or smaller" }, { status: 400 });
     }
 
-    const directory = join(process.cwd(), "public", "covers");
-    const filename = `${book.id}-${side.toLowerCase()}-${randomUUID()}${extension}`;
-    const filePath = join(directory, filename);
-    await mkdir(directory, { recursive: true });
-    await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
+    // Store the image as base64 in the database so it survives serverless
+    // deployments (Vercel function filesystems are ephemeral).
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const data = buffer.toString("base64");
 
-    const url = `/covers/${filename}`;
     const coverImage = await prisma.coverImage.create({
-      data: { bookId: book.id, url, source: "UPLOAD", side },
+      data: {
+        bookId: book.id,
+        url: "", // filled below with the cover's own id
+        data,
+        mimeType: file.type,
+        source: "UPLOAD",
+        side,
+      },
+    });
+    const url = `/api/covers/${coverImage.id}`;
+    await prisma.coverImage.update({
+      where: { id: coverImage.id },
+      data: { url },
     });
 
     const updated = await prisma.book.update({

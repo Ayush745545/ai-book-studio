@@ -10,8 +10,8 @@ const font = Plus_Jakarta_Sans({ subsets: ["latin"], display: "swap", variable: 
 
 export const metadata: Metadata = {
   title: {
-    default: "AI Book Studio — Write, Design & Publish with AI",
-    template: "%s · AI Book Studio",
+    default: "Write, Design & Publish with AI",
+    template: "%s · Book Studio",
   },
   description:
     "Turn an idea into a published, print-ready book. AI brainstorming, chapter writing, grammar polish, DALL-E covers, Stripe checkout and Lulu print-on-demand.",
@@ -26,11 +26,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SmoothScrollProvider>
               <Header />
               <main className="relative">{children}</main>
-              <footer className="relative mt-16 border-t border-white/10 py-8 text-center text-xs text-zinc-600">
-                <p>
-                  AI Book Studio — built with Next.js 14, Prisma, OpenAI, Stripe &amp; Lulu.
-                </p>
-              </footer>
             </SmoothScrollProvider>
           </Providers>
         </ThemeProvider>

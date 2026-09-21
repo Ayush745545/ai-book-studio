@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PoolsBoard } from "@/components/pools/pools-board";
 
-export const metadata: Metadata = { title: "Pools · AI Book Studio" };
+export const metadata: Metadata = { title: "Pools" };
 export const dynamic = "force-dynamic";
 
 export default async function PoolsPage() {

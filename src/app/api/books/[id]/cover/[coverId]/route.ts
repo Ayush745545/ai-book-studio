@@ -1,5 +1,3 @@
-import { unlink } from "fs/promises";
-import { join } from "path";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
@@ -27,9 +25,6 @@ export async function DELETE(_req: Request, { params }: Params) {
     if (!coverImage) return notFound("Cover image");
 
     await prisma.coverImage.delete({ where: { id: coverImage.id } });
-    if (coverImage.url.startsWith("/covers/")) {
-      await unlink(join(process.cwd(), "public", coverImage.url.slice(1))).catch(() => undefined);
-    }
 
     const updated = await prisma.book.update({
       where: { id: book.id },
