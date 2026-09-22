@@ -24,6 +24,43 @@ export const Sparkles = (p: IconProps) => (
   </svg>
 );
 
+export function Headphones(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M3 14v-2a9 9 0 0 1 18 0v2" />
+      <path d="M21 16a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v5z" />
+      <path d="M3 16a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v5z" />
+    </svg>
+  );
+}
+
+export const Compass = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="10" />
+    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+  </svg>
+);
+
+export const ClipboardList = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="8" y="2" width="8" height="4" rx="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <path d="M12 11h4" />
+    <path d="M12 16h4" />
+    <path d="M8 11h.01" />
+    <path d="M8 16h.01" />
+  </svg>
+);
+
+export const Bot = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M12 2a4 4 0 0 1 4 4v2h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2h2V6a4 4 0 0 1 4-4z" />
+    <circle cx="9" cy="13" r="1" fill="currentColor" />
+    <circle cx="15" cy="13" r="1" fill="currentColor" />
+    <path d="M9 17h6" />
+  </svg>
+);
+
 export const BookOpen = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
@@ -336,6 +373,13 @@ export const Smile = (p: IconProps) => (
     <path d="M8 14s1.5 2 4 2 4-2 4-2" />
     <line x1="9" y1="9" x2="9.01" y2="9" />
     <line x1="15" y1="9" x2="15.01" y2="9" />
+  </svg>
+);
+
+export const Tablet = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="4" y="2" width="16" height="20" rx="2" />
+    <path d="M12 18h.01" />
   </svg>
 );
 

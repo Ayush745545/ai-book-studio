@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "@/components/icons";
+import { FormatSelectionModal } from "@/components/format-selection-modal";
 
 const GENRES = [
   { title: "Sci-Fi Thriller", prompt: "A gripping sci-fi thriller about a rogue AI...", image: "/covers/ChatGPT%20Image%20Sep%2020,%202026,%2004_22_34%20PM-Photoroom.png", tone: "blue", position: "genre-sci-fi" },
@@ -10,6 +14,8 @@ const GENRES = [
 ];
 
 export default function LandingPage() {
+  const [modalOpen, setModalOpen] = useState(false);
+
   return (
     <div className="genre-page min-h-[calc(100vh-3.5rem)] overflow-hidden bg-[#f7f7fa] text-zinc-950">
       <section className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-[110rem] flex-col items-center px-4 pt-8 sm:px-6 sm:pt-12">
@@ -21,7 +27,12 @@ export default function LandingPage() {
               <video src="/covers/Untitled - September 21, 2026 at 18.21.22.mp4" autoPlay muted loop playsInline className="h-full w-full object-cover" />
             </div>
           </div>
-          <Link href="/books/new" className="genre-explore mt-5 inline-flex items-center gap-2 rounded-full bg-zinc-950 px-5 py-3 text-sm font-bold text-white shadow-xl shadow-zinc-900/15 transition hover:-translate-y-0.5 hover:bg-zinc-800">Explore Now <ArrowRight className="h-4 w-4" /></Link>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="genre-explore mt-5 inline-flex items-center gap-2 rounded-full bg-zinc-950 px-5 py-3 text-sm font-bold text-white shadow-xl shadow-zinc-900/15 transition hover:-translate-y-0.5 hover:bg-zinc-800"
+          >
+            Explore Now <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
 
         <div className="genre-stage relative mx-auto mt-[-.75rem] w-full max-w-[76rem]" aria-label="Book genres">
@@ -36,6 +47,8 @@ export default function LandingPage() {
 
         <Link href="/books/new" className="genre-bottom-cta relative z-30 -mt-4 mb-5 inline-flex items-center gap-2 rounded-full bg-white py-2 pl-2 pr-5 text-sm font-bold text-zinc-800 shadow-lg shadow-zinc-900/10 ring-1 ring-zinc-200/80 transition hover:-translate-y-0.5"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-green-500 text-emerald-950"><ArrowRight className="h-4 w-4" /></span>Try AI Book Studio free</Link>
       </section>
+
+      <FormatSelectionModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
     </div>
   );
 }
