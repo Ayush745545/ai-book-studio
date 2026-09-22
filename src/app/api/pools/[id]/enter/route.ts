@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
 import { apiError, unauthorized, notFound } from "@/lib/api";
@@ -35,6 +36,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
     return NextResponse.json({ entryId: entry.id, url }, { status: 201 });
   } catch (err: unknown) {
+    if (err instanceof Stripe.errors.StripeAuthenticationError) {
+      return NextResponse.json(
+        { error: "Stripe is not configured. Please add a valid STRIPE_SECRET_KEY to .env.local" },
+        { status: 503 }
+      );
+    }
     const status = (err as { status?: number })?.status;
     if (status) {
       return NextResponse.json({ error: err instanceof Error ? err.message : "Error" }, { status });
