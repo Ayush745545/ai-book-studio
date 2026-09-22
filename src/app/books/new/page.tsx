@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { BookIdea } from "@/types";
@@ -49,7 +49,7 @@ const FORMAT_ICONS: Record<string, React.ReactNode> = {
   audiobook: <Headphones className="h-5 w-5 text-indigo-400" />,
 };
 
-export default function NewBookPage() {
+function NewBookPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
@@ -484,5 +484,13 @@ export default function NewBookPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function NewBookPage() {
+  return (
+    <Suspense fallback={<div className="flex h-[60vh] items-center justify-center"><Spinner className="h-8 w-8 text-indigo-400 animate-spin" /></div>}>
+      <NewBookPageContent />
+    </Suspense>
   );
 }
