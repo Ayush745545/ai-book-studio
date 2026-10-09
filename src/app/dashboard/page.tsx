@@ -4,184 +4,98 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { serializeBook } from "@/lib/serialize";
-import { BookCard } from "@/components/book-card";
-import { DeleteBookButton } from "@/components/dashboard/delete-book-button";
-import { ActivityHeatmap } from "@/components/dashboard/activity-heatmap";
-import { ContestSection } from "@/components/dashboard/contest-section";
-import { synthesizeActivity } from "@/lib/activity-utils";
-import { Plus, Sparkles, BookOpen } from "@/components/icons";
-
+import { ProjectLibrary } from "@/components/studio/project-library";
+import { FormatGrid } from "@/components/studio/format-grid";
+import { Plus } from "@/components/icons";
+import { WritingCalendar } from "@/components/dashboard/writing-calendar";
 export const dynamic = "force-dynamic";
-
-export default async function DashboardPage({ searchParams }: { searchParams: { tab?: string } }) {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: { tab?: string };
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
-
-  const tab = searchParams.tab === "library" ? "library" : "authored";
-
-  const authoredBooks = await prisma.book.findMany({
-    where: { authorId: session.user.id },
+  const library = searchParams.tab === "library";
+  const books = await prisma.book.findMany({
+    where: library
+      ? { orders: { some: { userId: session.user.id, status: "PAID" } } }
+      : { authorId: session.user.id },
     include: {
-      chapters: { select: { wordCount: true, createdAt: true, updatedAt: true } },
-      coverImages: { select: { createdAt: true } },
+      chapters: { select: { wordCount: true } },
+      author: { select: { name: true, email: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
-
-  const totalWords = authoredBooks.reduce(
-    (sum, b) => sum + b.chapters.reduce((s, c) => s + c.wordCount, 0),
-    0
-  );
-
-  const serializedAuthored = authoredBooks.map(({ chapters, coverImages, ...bookOnly }) => ({
-    ...serializeBook(bookOnly),
+  const serialized = books.map(({ chapters, ...book }) => ({
+    ...serializeBook(book),
     chapterCount: chapters.length,
-    wordCount: chapters.reduce((s, c) => s + c.wordCount, 0),
+    wordCount: chapters.reduce((sum, c) => sum + c.wordCount, 0),
   }));
-
-  const libraryBooks = await prisma.book.findMany({
-    where: {
-      orders: {
-        some: {
-          userId: session.user.id,
-          status: "PAID",
-        },
-      },
-    },
-    include: { author: { select: { name: true, email: true } } },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const serializedLibrary = libraryBooks.map(b => ({
-    ...serializeBook(b),
-    authorName: b.author?.name || b.author?.email?.split("@")[0] || "Unknown",
-  }));
-
-  const activity = synthesizeActivity({ authoredBooks, seed: session.user.id.charCodeAt(0) * 31 + 7 });
-
-  const totalSessions = activity.reduce((s, a) => s + a.sessions, 0);
-  const booksTouched = new Set(activity.filter(a => a.books > 0).map(a => a.date)).size + authoredBooks.length;
-
+  const totalWords = serialized.reduce((sum, book) => sum + book.wordCount, 0);
   return (
-    <div className="min-h-screen">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <p className="text-sm text-zinc-500">
-            Welcome back, {session.user.name || session.user.email?.split("@")[0]}
-          </p>
-          <Link href="/books/new" className="btn-primary">
-            <Plus className="h-4 w-4" /> New Book
+    <div className="studio-shell studio-dashboard">
+      <div className="studio-dashboard-inner">
+        <div className="studio-dashboard-heading">
+          <div>
+            <span className="studio-eyebrow">YOUR CREATIVE HOME</span>
+            <h1 className="studio-title">
+              Welcome back, {session.user.name || "writer"}.
+            </h1>
+            <p className="studio-muted">
+              A little progress today. A book you’re proud of tomorrow.
+            </p>
+          </div>
+          <Link href="/books/new" className="studio-button primary">
+            <Plus />
+            New project
           </Link>
         </div>
-
-        <div className="mb-6 flex gap-4 border-b border-white/10 pb-2">
-          <Link
-            href="/dashboard?tab=authored"
-            className={`px-2 py-1 text-sm font-medium transition ${
-              tab === "authored"
-                ? "text-indigo-400 border-b-2 border-indigo-400"
-                : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            My Authored Books
-          </Link>
-          <Link
-            href="/dashboard?tab=library"
-            className={`px-2 py-1 text-sm font-medium transition ${
-              tab === "library"
-                ? "text-indigo-400 border-b-2 border-indigo-400"
-                : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            My Library
-          </Link>
+        <div className="studio-dashboard-stats">
+          <div>
+            <span>
+              {library ? "On your bookshelf" : "Projects in your studio"}
+            </span>
+            <strong>{books.length}</strong>
+          </div>
+          <div>
+            <span>Words written</span>
+            <strong>{totalWords.toLocaleString()}</strong>
+          </div>
+          <div>
+            <span>{library ? "Authors discovered" : "Published projects"}</span>
+            <strong>
+              {library
+                ? new Set(books.map((b) => b.authorId)).size
+                : books.filter((b) => b.isPublished).length}
+            </strong>
+          </div>
         </div>
-
-        {tab === "authored" && (
-          <>
-            <div className="mb-8">
-              <ActivityHeatmap
-                activity={activity}
-                totalWords={totalWords}
-                totalSessions={totalSessions}
-                booksCount={Math.min(authoredBooks.length, booksTouched)}
-              />
-            </div>
-
-            {serializedAuthored.length === 0 ? (
-              <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-indigo-300 ring-1 ring-indigo-400/30">
-                  <Sparkles className="h-7 w-7" />
-                </span>
-                <div>
-                  <h2 className="text-lg font-semibold text-zinc-100">Your studio is empty</h2>
-                  <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-500">
-                    Give AI a genre and a few keywords — it will pitch you three book
-                    concepts to start from.
-                  </p>
-                </div>
-                <Link href="/books/new" className="btn-primary mt-2">
-                  <Plus className="h-4 w-4" /> Create your first book
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {serializedAuthored.map((book) => (
-                  <div key={book.id} className="relative group">
-                    <BookCard
-                      book={book}
-                      href={`/books/${book.id}`}
-                      showStatus
-                      meta={`${book.chapterCount} ch · ${book.wordCount.toLocaleString()} words`}
-                    />
-                    <DeleteBookButton bookId={book.id} bookTitle={book.title} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
+        {!library && <WritingCalendar />}
+        <div className="studio-library-heading">
+          <nav>
+            <Link className={!library ? "active" : ""} href="/dashboard">
+              My writing
+            </Link>
+            <Link
+              className={library ? "active" : ""}
+              href="/dashboard?tab=library"
+            >
+              My bookshelf
+            </Link>
+          </nav>
+          <span>
+            {books.length} {books.length === 1 ? "project" : "projects"}
+          </span>
+        </div>
+        <ProjectLibrary books={serialized} purchased={library} />
+        {!library && (
+          <section className="studio-dashboard-formats">
+            <span className="studio-eyebrow">WHAT WILL YOU MAKE NEXT?</span>
+            <h2>There’s more than one way to tell it.</h2>
+            <FormatGrid />
+          </section>
         )}
-
-        {tab === "library" && (
-          <>
-            {serializedLibrary.length === 0 ? (
-              <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-300 ring-1 ring-emerald-400/30">
-                  <BookOpen className="h-7 w-7" />
-                </span>
-                <div>
-                  <h2 className="text-lg font-semibold text-zinc-100">Your library is empty</h2>
-                  <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-500">
-                    You haven't added any books to your library yet. Visit the store to find some great reads.
-                  </p>
-                </div>
-                <Link href="/store" className="btn-primary mt-2">
-                  <BookOpen className="h-4 w-4 mr-2" /> Browse Store
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {serializedLibrary.map((book) => (
-                  <BookCard
-                    key={book.id}
-                    book={book}
-                    href={`/store/${book.id}/read`}
-                    meta={`by ${book.authorName}`}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── Writer of the Week ─────────────────────────────────── */}
-        <ContestSection
-          books={authoredBooks.map((b) => ({
-            id: b.id,
-            title: b.title,
-            isPublished: b.isPublished,
-          }))}
-        />
       </div>
     </div>
   );

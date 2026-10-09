@@ -1,3 +1,4 @@
+import { writingCredentials } from "@/lib/ai-credentials";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/session";
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
 
     const body = schema.parse(await req.json());
     const result = await grammarCheck(body.text, {
-      provider: body.provider,
+      ...(await writingCredentials(user.id, body.provider)),
       model: body.model,
     });
     return NextResponse.json(result);

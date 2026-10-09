@@ -1,3 +1,4 @@
+import { writingCredentials } from "@/lib/ai-credentials";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -6,6 +7,7 @@ import { generateChapter } from "@/lib/openai";
 import { serializeChapter } from "@/lib/serialize";
 import { countWords } from "@/lib/utils";
 import { apiError, forbidden, notFound, unauthorized } from "@/lib/api";
+import { getFormatById, chapterNotes } from "@/lib/book-formats";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +16,7 @@ export const maxDuration = 120;
 const schema = z.object({
   title: z.string().min(1, "Chapter title is required").max(200),
   content: z.string().max(200000).optional(),
+  notes: z.string().max(10000).optional(),
   outline: z.string().max(4000).optional(),
   tone: z.string().max(50).optional(),
   aiGenerate: z.boolean().optional(),
@@ -45,9 +48,9 @@ export async function POST(req: Request, { params }: Params) {
       content = await generateChapter(
         book.title,
         body.title,
-        body.outline ?? "",
+        `${getFormatById(book.format)?.instruction ?? ""}\nLanguage: ${book.language}\nAudience: ${book.audience}\nBook brief: ${book.writingGoal}\n${body.outline ?? ""}`,
         body.tone ?? "engaging",
-        { provider: body.provider, model: body.model }
+        { ...(await writingCredentials(user.id, body.provider)), model: body.model }
       );
     }
 
@@ -60,6 +63,7 @@ export async function POST(req: Request, { params }: Params) {
       data: {
         title: body.title,
         content,
+        notes: body.notes ?? chapterNotes(getFormatById(book.format) ?? getFormatById("book")!, body.title, book.writingGoal),
         wordCount: countWords(content),
         order: (last._max.order ?? -1) + 1,
         type: body.type ?? "CHAPTER",

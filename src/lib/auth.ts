@@ -61,6 +61,17 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      const target = new URL(url, baseUrl);
+      const base = new URL(baseUrl);
+      if (target.origin === base.origin) return target.href;
+      const loopback = ["localhost", "127.0.0.1", "[::1]"];
+      if (process.env.NODE_ENV === "development" && loopback.includes(base.hostname) &&
+          loopback.includes(target.hostname) && target.port === base.port && target.protocol === base.protocol) {
+        return target.href;
+      }
+      return baseUrl;
+    },
     async jwt({ token, user }) {
       // Persist user.id + role into the JWT on sign-in
       if (user) {

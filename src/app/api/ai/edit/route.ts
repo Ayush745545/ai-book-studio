@@ -1,3 +1,4 @@
+import { writingCredentials } from "@/lib/ai-credentials";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/session";
@@ -30,8 +31,8 @@ const schema = z.object({
   bookId: z.string().max(100).optional(),
   chapterId: z.string().max(100).optional(),
   chapterTitle: z.string().max(200).optional(),
-  provider: z.enum(["openai", "openrouter"]).optional().default("openai"),
-  model: z.string().max(100).optional().default("gpt-4o-mini"),
+  provider: z.enum(["openai", "openrouter"]).optional().default("openrouter"),
+  model: z.string().max(100).optional(),
   baseUrl: z.string().max(400).optional(),
   store: z.boolean().optional().default(true),
 });
@@ -42,6 +43,7 @@ export async function POST(req: Request) {
     if (!user) return unauthorized();
 
     const body = schema.parse(await req.json());
+    const credentials = await writingCredentials(user.id, body.provider);
 
     let bookTitle = "";
     let bookGenre = "";
@@ -79,13 +81,13 @@ export async function POST(req: Request) {
     let tokensUsed = 0;
 
     if (body.provider === "openrouter") {
-      const baseUrl = (body.baseUrl || "https://openrouter.ai/api/v1").replace(/\/$/, "");
+      const baseUrl = ("https://openrouter.ai/api/v1").replace(/\/$/, "");
       const useModel = !body.model || body.model === "llama3" ? "openai/gpt-4o-mini" : body.model;
       const res = (await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY || ""}`,
+          Authorization: `Bearer ${credentials.apiKey || ""}`,
         },
         body: JSON.stringify({
           model: useModel,
@@ -103,7 +105,7 @@ export async function POST(req: Request) {
       result = data.choices?.[0]?.message?.content ?? "";
       tokensUsed = data.usage?.total_tokens ?? 0;
     } else {
-      const fb = await fallbackOpenAI(body.model, system, userPrompt);
+      const fb = await fallbackOpenAI(body.model || "gpt-4o-mini", system, userPrompt);
       result = fb.text;
       tokensUsed = fb.tokens;
     }

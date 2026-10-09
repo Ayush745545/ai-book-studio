@@ -59,12 +59,14 @@ model User {
   name      String?
   image     String?
   password  String? // bcrypt hash — set automatically on first sign-in
+  openRouterKey String? @db.Text
   role      Role     @default(AUTHOR)
   createdAt DateTime @default(now())
 
   books   Book[]
   orders  Order[]
   aiEdits AiEdit[] @relation("UserAiEdits")
+  writingActivity WritingActivity[]
 
   contestEntries ContestEntry[] @relation("UserContestEntries")
   wonContests    Contest[]      @relation("ContestWinner")
@@ -80,6 +82,11 @@ model Book {
   status       BookStatus @default(DRAFT)
   genre        String?
   language     String     @default("English")
+  format       String     @default("book")
+  targetPages  Int        @default(120)
+  audience     String     @default("")
+  writingGoal  String     @default("")
+  tone         String     @default("Engaging")
   isPublished  Boolean    @default(false)
   price        Float      @default(0)
   digitalPrice Float      @default(0)
@@ -100,6 +107,7 @@ model Book {
   aiEdits       AiEdit[]       @relation("BookAiEdits")
 
   contestEntries ContestEntry[] @relation("BookContestEntries")
+  writingActivity WritingActivity[]
 }
 
 model PrintSettings {
@@ -141,6 +149,7 @@ model Chapter {
   order     Int         @default(0)
   type      ChapterType @default(CHAPTER)
   wordCount Int         @default(0)
+  notes     String      @default("")
   bookId    String
   book      Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
   createdAt DateTime    @default(now())
@@ -148,6 +157,24 @@ model Chapter {
 
   versions Version[]
   aiEdits  AiEdit[]  @relation("ChapterAiEdits")
+  writingActivity WritingActivity[]
+}
+
+model WritingActivity {
+  id           String @id @default(cuid())
+  userId       String
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId       String?
+  book         Book? @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  chapterId    String?
+  chapter      Chapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  bookTitle    String
+  action       String @default("WRITE")
+  wordsAdded   Int @default(0)
+  wordsRemoved Int @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model Version {

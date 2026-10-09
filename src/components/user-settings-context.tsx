@@ -28,17 +28,17 @@ export type UserSettings = {
 const DEFAULTS: UserSettings = {
   displayName: "",
   bio: "",
-  aiProvider: "openai",
+  aiProvider: "openrouter",
   openAIModel: "gpt-4o-mini",
   openAIBaseUrl: "https://api.openai.com/v1",
-  openRouterModel: "",
+  openRouterModel: "openai/gpt-4o-mini",
   openRouterBaseUrl: "https://openrouter.ai/api/v1",
   temperature: 0.6,
   contextWindow: 4096,
   autoSave: true,
 };
 
-const STORAGE_KEY = "aibook-user-settings";
+const STORAGE_KEY = "aibook-user-settings-v2";
 
 type UserSettingsContextValue = {
   settings: UserSettings;
@@ -59,7 +59,10 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return DEFAULTS;
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return DEFAULTS;
+      if (!raw) {
+        const legacy = window.localStorage.getItem("aibook-user-settings");
+        return legacy ? { ...DEFAULTS, ...JSON.parse(legacy), aiProvider: "openrouter", openRouterModel: "openai/gpt-4o-mini" } : DEFAULTS;
+      }
       const parsed = JSON.parse(raw);
       return { ...DEFAULTS, ...parsed };
     } catch {

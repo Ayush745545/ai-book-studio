@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
+const exports = {};
+const compiled = ts.transpileModule(fs.readFileSync(new URL('../src/lib/writing-activity.ts',import.meta.url),'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+vm.runInNewContext(compiled,{exports,Intl,Date});
+assert.equal(exports.dateKey('2026-10-08T20:00:00Z','Asia/Kolkata'),'2026-10-09');
+assert.equal(exports.dateKey('2026-10-08T20:00:00Z','America/Los_Angeles'),'2026-10-08');
+const grouped = exports.groupWritingActivity([{createdAt:'2026-10-08T20:00:00Z',wordsAdded:10,wordsRemoved:0,bookTitle:'A book',action:'WRITE'},{createdAt:'2026-10-09T03:00:00Z',wordsAdded:4,wordsRemoved:2,bookTitle:'A book',action:'WRITE'}],'Asia/Kolkata');
+assert.equal(grouped.length,1);assert.equal(grouped[0].edits,2);assert.equal(grouped[0].wordsAdded,14);assert.equal(grouped[0].wordsRemoved,2);assert.equal(grouped[0].books.length,1);
+const days = ['2026-10-01','2026-10-07','2026-10-08','2026-10-09'].map(date=>({date,edits:1}));
+assert.equal(exports.writingStreaks(days,'2026-10-09').current,3);assert.equal(exports.writingStreaks(days,'2026-10-09').longest,3);assert.equal(exports.writingStreaks(days,'2026-10-10').current,3);assert.equal(exports.writingStreaks(days,'2026-10-11').current,0);
+assert.equal(exports.shiftDay('2024-02-28',1),'2024-02-29');
+const calendar = exports.calendarDays('2026-10-09',365);
+assert.equal(calendar.length%7,0);assert.ok(calendar.includes('2026-10-09'));assert.equal(new Date(calendar[0]+'T12:00Z').getUTCDay(),0);assert.equal(new Date(calendar.at(-1)+'T12:00Z').getUTCDay(),6);
+console.log('16 activity checks passed: local dates, aggregation, streaks, leap days, and calendar alignment.');

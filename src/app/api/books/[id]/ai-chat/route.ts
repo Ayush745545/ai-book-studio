@@ -1,3 +1,4 @@
+import { writingCredentials } from "@/lib/ai-credentials";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/session";
@@ -12,8 +13,8 @@ const schema = z.object({
   message: z.string().min(1).max(4000),
   chapterTitle: z.string().max(200).optional(),
   chapterId: z.string().max(100).optional(),
-  provider: z.enum(["openai", "openrouter"]).optional().default("openai"),
-  model: z.string().max(100).optional().default("llama3"),
+  provider: z.enum(["openai", "openrouter"]).optional().default("openrouter"),
+  model: z.string().max(100).optional(),
   baseUrl: z.string().max(400).optional(),
   temperature: z.number().min(0).max(2).optional().default(0.6),
   contextWindow: z.number().int().min(512).max(128000).optional().default(4096),
@@ -35,6 +36,7 @@ export async function POST(req: Request, { params }: Params) {
     if (book.authorId !== user.id && user.role !== "ADMIN") return forbidden();
 
     const body = schema.parse(await req.json());
+    const credentials = await writingCredentials(user.id, body.provider);
 
     const systemPrompt = `You are a helpful AI writing assistant for an author working on a book called "${book.title}"${book.genre ? ` in the ${book.genre} genre` : ""}${book.description ? `. Synopsis: ${book.description}` : ""}${body.chapterTitle ? `. Currently editing chapter: "${body.chapterTitle}"` : ""}.
 
@@ -45,8 +47,8 @@ IMPORTANT: output plain text only — no markdown, no asterisks (** or *), no ba
     if (body.provider === "openrouter") {
       const { default: OpenAI } = await import("openai");
       const openai = new OpenAI({
-        baseURL: (body.baseUrl || "https://openrouter.ai/api/v1").replace(/\/$/, ""),
-        apiKey: process.env.OPENROUTER_API_KEY || "",
+        baseURL: ("https://openrouter.ai/api/v1").replace(/\/$/, ""),
+        apiKey: credentials.apiKey || "",
       });
       const useModel = !body.model || body.model === "llama3" ? "openai/gpt-4o-mini" : body.model;
       const completion = await openai.chat.completions.create({
@@ -80,7 +82,7 @@ IMPORTANT: output plain text only — no markdown, no asterisks (** or *), no ba
     } else {
       const { default: OpenAI } = await import("openai");
       const openai = new OpenAI({
-        baseURL: body.baseUrl || undefined,
+        baseURL: process.env.OPENAI_BASE_URL || undefined,
       });
       const useModel = !body.model || body.model === "llama3" ? "gpt-4o-mini" : body.model;
       const completion = await openai.chat.completions.create({

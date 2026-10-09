@@ -38,3 +38,6 @@ next-env.d.ts
 
 # Prisma
 /prisma/dev.db*
+
+# Local development services
+/.local/

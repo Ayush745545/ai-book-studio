@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep localhost and 127.0.0.1 callbacks on the browser's original host.
+  skipMiddlewareUrlNormalize: true,
   experimental: {
     // Keep native/dynamic-require packages out of the server bundle
     serverComponentsExternalPackages: ["pdfkit", "bcryptjs", "@prisma/client"],

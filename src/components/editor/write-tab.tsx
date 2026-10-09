@@ -1,759 +1,998 @@
 "use client";
-
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import type { SerializedBook, SerializedChapter, ChapterType } from "@/types";
+import { getFormatById } from "@/lib/book-formats";
 import { apiFetch } from "@/lib/client";
 import { useToast } from "@/components/ui/toast";
 import { useUserSettings } from "@/components/user-settings-context";
-import { Plus, Spinner, Trash, X, Check, GripVertical, FileText } from "@/components/icons";
-import { OnboardingTutorial } from "./onboarding-tutorial";
-import { AIAssistantPopup } from "./ai-assistant-popup";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Plus,
+  Sparkles,
+  Spinner,
+  Trash,
+  X,
+  FileText,
+} from "@/components/icons";
+import { useDialog } from "@/components/studio/use-dialog";
 import { SelectionAiPopup } from "./selection-ai-popup";
 
-interface WriteTabProps {
+export interface WriterHandle {
+  flush: () => Promise<boolean>;
+}
+interface Props {
   book: SerializedBook;
-  onBookChange: (b: SerializedBook) => void;
+  onBookChange: (book: SerializedBook) => void;
   refreshBook: () => Promise<SerializedBook>;
 }
+type Draft = {
+  id: string;
+  title: string;
+  content: string;
+  notes: string;
+  type: ChapterType;
+  revision: number;
+};
+const empty: Draft = {
+  id: "",
+  title: "",
+  content: "",
+  notes: "",
+  type: "CHAPTER",
+  revision: 0,
+};
 
-export function WriteTab({ book, onBookChange, refreshBook }: WriteTabProps) {
-  const toast = useToast();
-  const rawChapters = useMemo(() => book.chapters ?? [], [book.chapters]);
-  const [chapters, setChapters] = useState(rawChapters);
-
-  useEffect(() => {
-    setChapters(book.chapters ?? []);
-  }, [book.chapters]);
-
-  const [activeId, setActiveId] = useState<string | null>(chapters[0]?.id ?? null);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [showAI, setShowAI] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [autoSaved, setAutoSaved] = useState(true);
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
-  const { settings } = useUserSettings();
-  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    const seen = localStorage.getItem("aibookstudio-tutorial-seen");
-    if (!seen) setShowTutorial(true);
-  }, []);
-
-  const active = useMemo(() => chapters.find((c) => c.id === activeId) ?? null, [chapters, activeId]);
-
-  // Only reload the editor when the active chapter *id* changes — not on every
-  // refreshBook() round-trip, which would clobber in-flight edits with stale
-  // server data and defeat the autosave timer.
-  const loadedChapterIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (active && active.id !== loadedChapterIdRef.current) {
-      // Flush any pending edits to the *previous* chapter before switching.
-      // At this moment `active` already points at the NEW chapter, so we
-      // must save to the old chapter's id explicitly.
-      if (dirty && loadedChapterIdRef.current) {
-        const prevId = loadedChapterIdRef.current;
-        const prevTitle = title;
-        const prevContent = content;
-        saveChapter(prevId, prevTitle, prevContent).then(() => {
-          setDirty(false);
-          setAutoSaved(true);
-        });
-      }
-      loadedChapterIdRef.current = active.id;
-      setTitle(active.title);
-      setContent(active.content);
-      setDirty(false);
-      setAutoSaved(true);
-    }
-  }, [active?.id]);
-
-  async function addChapter() {
-    setAdding(true);
-    try {
-      const highest = chapters.reduce((max, c) => (c.order > max ? c.order : max), 0);
-      await apiFetch(`/api/books/${book.id}/chapters`, {
-        method: "POST",
-        body: JSON.stringify({
-          title: `Chapter ${chapters.length + 1}`,
-          content: "",
-          type: "CHAPTER" as ChapterType,
-          order: highest + 1,
-        }),
-      });
-      const updated = await refreshBook();
-      const newChap = updated.chapters?.[updated.chapters.length - 1];
-      if (newChap) setActiveId(newChap.id);
-    } catch (e) {
-      toast("Failed to create chapter", "error");
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const linesRef = useRef<HTMLDivElement>(null);
-  const mirrorRef = useRef<HTMLDivElement>(null);
-  const highlightLayerRef = useRef<HTMLDivElement>(null);
-  const [lineCount, setLineCount] = useState(1);
-  const [showLines, setShowLines] = useState(true);
-
-  useEffect(() => {
-    const lines = content.split('\n').length;
-    setLineCount(Math.max(lines, 50));
-  }, [content]);
-
-  const handleScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
-    if (linesRef.current) {
-      linesRef.current.scrollTop = e.currentTarget.scrollTop;
-    }
-    updateHighlight();
-  };
-
-  const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
-
-const saveNow = async () => {
-    if (!active || saving) return;
-    setSaving(true);
-    let lastErr: unknown;
-    try {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          // Only send title when non-empty — the PUT schema rejects "".
-          const body: Record<string, unknown> = { content };
-          if (title.trim()) body.title = title;
-          await apiFetch(`/api/chapters/${active.id}`, {
-            method: "PUT",
-            body: JSON.stringify(body),
-          });
-          setDirty(false);
-          setAutoSaved(true);
-          toast("Saved", "success");
-          return;
-        } catch (e) {
-          lastErr = e;
-          if (e instanceof Error && "status" in e) {
-            const status = (e as { status?: number }).status;
-            if (status && status < 500) throw e;
-          }
-          if (attempt < 2) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
-        }
-      }
-      throw lastErr;
-    } catch (e) {
-      setAutoSaved(false);
-      setDirty(true);
-      const status = e instanceof Error && "status" in e ? (e as { status?: number }).status : undefined;
-      toast(
-        status === 401 || status === 403
-          ? "Session expired — sign in again to save"
-          : "Save failed",
-        "error"
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Save to an *explicit* chapter id. Used when flushing pending edits before
-  // switching chapters — at that moment `active` already points at the NEW
-  // chapter, so we must not save to the new chapter's id.
-  const saveChapter = async (chapterId: string, chapterTitle: string, chapterContent: string) => {
-    setSaving(true);
-    let lastErr: unknown;
-    try {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          const body: Record<string, unknown> = { content: chapterContent };
-          if (chapterTitle.trim()) body.title = chapterTitle;
-          await apiFetch(`/api/chapters/${chapterId}`, {
-            method: "PUT",
-            body: JSON.stringify(body),
-          });
-          return;
-        } catch (e) {
-          lastErr = e;
-          if (e instanceof Error && "status" in e) {
-            const status = (e as { status?: number }).status;
-            if (status && status < 500) throw e;
-          }
-          if (attempt < 2) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
-        }
-      }
-      throw lastErr;
-    } catch (e) {
-      setAutoSaved(false);
-      setDirty(true);
-      const status = e instanceof Error && "status" in e ? (e as { status?: number }).status : undefined;
-      toast(
-        status === 401 || status === 403
-          ? "Session expired — sign in again to save"
-          : "Auto-save failed — your edits are kept",
-        "error"
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Ctrl/Cmd+S → save instantly (and prevent the browser's save dialog).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        saveNow();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [saveNow]);
-
-  const [selPopup, setSelPopup] = useState<{
+export const WriteTab = forwardRef<WriterHandle, Props>(function WriteTab(
+  { book, onBookChange, refreshBook },
+  ref,
+) {
+  const toast = useToast(),
+    { settings } = useUserSettings();
+  const format = getFormatById(book.format) ?? getFormatById("book")!;
+  const targetWords = Math.max(100, Math.min(3000, Math.round(book.targetPages * 250 / Math.max(1, book.chapters?.length ?? 1))));
+  const [draft, setDraft] = useState<Draft>(empty),
+    [savedRevision, setSavedRevision] = useState(0),
+    [saving, setSaving] = useState(false),
+    [saveError, setSaveError] = useState("");
+  const [sidebar, setSidebar] = useState(true),
+    [notesOpen, setNotesOpen] = useState(true),
+    [focusMode, setFocusMode] = useState(false),
+    [fontSize, setFontSize] = useState(18),
+    [font, setFont] = useState("serif");
+  const [adding, setAdding] = useState(false),
+    [newTitle, setNewTitle] = useState(""),
+    [mutating, setMutating] = useState(false),
+    [aiBusy, setAiBusy] = useState(false),
+    [aiDraft, setAiDraft] = useState<string | null>(null);
+  const [capabilities, setCapabilities] = useState({
+    openai: false,
+    openrouter: false,
+  });
+  const [history, setHistory] = useState<
+    { id: string; content: string; createdAt: string }[] | null
+  >(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selection, setSelection] = useState<{
     text: string;
     start: number;
     end: number;
     anchor: { x: number; yTop: number; yBottom: number };
   } | null>(null);
-
-  async function runAutoSave() {
-    if (!active) return;
-    setSaving(true);
-    let lastErr: unknown;
-    try {
-      // Retry transient failures (network blips, 5xx) up to 3 times.
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          // Only send title when non-empty — the PUT schema rejects "".
-          const body: Record<string, unknown> = { content };
-          if (title.trim()) body.title = title;
-          await apiFetch(`/api/chapters/${active.id}`, {
-            method: "PUT",
-            body: JSON.stringify(body),
-          });
-          setDirty(false);
-          setAutoSaved(true);
-          return;
-        } catch (e) {
-          lastErr = e;
-          // Don't retry on 4xx client errors (auth, validation, forbidden).
-          if (e instanceof Error && "status" in e) {
-            const status = (e as { status?: number }).status;
-            if (status && status < 500) throw e;
+  const textarea = useRef<HTMLTextAreaElement>(null),
+    draftRef = useRef<Draft>(empty),
+    savedRef = useRef(0),
+    bookRef = useRef(book),
+    pending = useRef<Promise<boolean> | null>(null),
+    undo = useRef<string[]>([]),
+    redo = useRef<string[]>([]);
+  const reviewRef = useRef<HTMLDivElement>(null);
+  useDialog(aiDraft !== null || history !== null, reviewRef, () => { setAiDraft(null); setHistory(null); });
+  bookRef.current = book;
+  useEffect(() => {
+    const compact = window.matchMedia("(max-width: 760px)");
+    const phone = window.matchMedia("(max-width: 520px)");
+    const update = () => {
+      setSidebar(!phone.matches);
+      setNotesOpen(!compact.matches);
+    };
+    update();
+    compact.addEventListener("change", update);
+    phone.addEventListener("change", update);
+    return () => { compact.removeEventListener("change", update); phone.removeEventListener("change", update); };
+  }, []);
+  const recoveryKey = (id: string) => `studio-draft:${book.id}:${id}`;
+  const load = useCallback(
+    (chapter: SerializedChapter) => {
+      let next: Draft = {
+        id: chapter.id,
+        title: chapter.title,
+        content: chapter.content,
+        notes: chapter.notes ?? "",
+        type: chapter.type,
+        revision: 0,
+      };
+      try {
+        const raw = localStorage.getItem(recoveryKey(chapter.id));
+        if (raw) {
+          const recovered = JSON.parse(raw);
+          if (
+            typeof recovered.content === "string" &&
+            typeof recovered.title === "string"
+          ) {
+            next = { ...next, ...recovered, id: chapter.id, revision: 1 };
+            toast("Recovered your unsaved draft", "success");
           }
-          if (attempt < 2) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
         }
+      } catch {
+        /* The server copy remains available. */
       }
-      throw lastErr;
-    } catch (e) {
-      setAutoSaved(false);
-      setDirty(true);
-      const status = e instanceof Error && "status" in e ? (e as { status?: number }).status : undefined;
-      toast(
-        status === 401 || status === 403
-          ? "Session expired — sign in again to save"
-          : "Auto-save failed — your edits are kept",
-        "error"
-      );
-    } finally {
-      setSaving(false);
+      draftRef.current = next;
+      savedRef.current = 0;
+      setSavedRevision(0);
+      setDraft(next);
+      setSaveError("");
+      setSelection(null);
+      setAiDraft(null);
+      setHistory(null);
+      undo.current = [];
+      redo.current = [];
+    },
+    [book.id, toast],
+  );
+  useEffect(() => {
+    if (!draftRef.current.id && book.chapters?.length) load(book.chapters[0]);
+  }, [book.chapters, load]);
+  useEffect(() => {
+    apiFetch<typeof capabilities>("/api/studio/status")
+      .then(setCapabilities)
+      .catch(() => {});
+  }, []);
+  function edit(patch: Partial<Draft>, trackUndo = true) {
+    const current = draftRef.current;
+    if (
+      patch.content !== undefined &&
+      patch.content !== current.content &&
+      trackUndo
+    ) {
+      undo.current.push(current.content);
+      if (undo.current.length > 100) undo.current.shift();
+      redo.current = [];
+    }
+    const next = { ...current, ...patch, revision: current.revision + 1 };
+    draftRef.current = next;
+    setDraft(next);
+    setSaveError("");
+    try {
+      localStorage.setItem(recoveryKey(next.id), JSON.stringify(next));
+    } catch {
+      /* Save errors are reported separately. */
     }
   }
-
-  // Debounced auto-save — fires 1500ms after the user stops typing.
-  useEffect(() => {
-    if (!autoSaveEnabled) {
-      setAutoSaved(true);
-      return;
+  const persist = useCallback(async (): Promise<boolean> => {
+    if (pending.current) return pending.current;
+    const snapshot = { ...draftRef.current };
+    if (!snapshot.id || snapshot.revision === savedRef.current) return true;
+    if (!snapshot.title.trim()) {
+      setSaveError("Add a section title to save your work.");
+      return false;
     }
-    if (!dirty) {
-      setAutoSaved(true);
-      return;
-    }
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => {
-      runAutoSave();
-    }, 1500);
-    return () => {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dirty, title, content, autoSaveEnabled]);
-
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    };
-  }, []);
-
-  const updateSelFromTextarea = useCallback(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    if (end <= start || end - start < 2) {
-      setSelPopup(null);
-      return;
-    }
-    const text = ta.value.slice(start, end);
-    if (!text.trim()) {
-      setSelPopup(null);
-      return;
-    }
-    const endPos = caretCoords(ta, end);
-    const startPos = caretCoords(ta, start);
-    const anchor = {
-      x: endPos.x,
-      yTop: startPos.yTop,
-      yBottom: endPos.yBottom,
-    };
-    setSelPopup({ text, start, end, anchor });
-  }, []);
-
-  useEffect(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const onUp = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (ta !== target && !ta.contains(target)) return;
-      window.setTimeout(updateSelFromTextarea, 0);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.shiftKey || ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) {
-        window.setTimeout(updateSelFromTextarea, 0);
+    setSaving(true);
+    const task = (async () => {
+      try {
+        const data = await apiFetch<{ chapter: SerializedChapter }>(
+          `/api/chapters/${snapshot.id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              title: snapshot.title.trim(),
+              content: snapshot.content,
+              notes: snapshot.notes,
+              type: snapshot.type,
+            }),
+          },
+        );
+        const currentBook = bookRef.current;
+        const nextBook = {
+          ...currentBook,
+          status: currentBook.isPublished
+            ? currentBook.status
+            : ("WRITING" as const),
+          chapters: (currentBook.chapters ?? []).map((c) =>
+            c.id === data.chapter.id ? data.chapter : c,
+          ),
+        };
+        bookRef.current = nextBook;
+        onBookChange(nextBook);
+        if (draftRef.current.id === snapshot.id) {
+          savedRef.current = snapshot.revision;
+          setSavedRevision(snapshot.revision);
+          if (draftRef.current.revision === snapshot.revision)
+            try { localStorage.removeItem(recoveryKey(snapshot.id)); } catch { /* Server save succeeded. */ }
+        }
+        setSaveError("");
+        return true;
+      } catch (e) {
+        setSaveError(
+          e instanceof Error
+            ? e.message
+            : "Could not save. Your draft is kept on this device.",
+        );
+        return false;
+      } finally {
+        setSaving(false);
+        pending.current = null;
       }
-      if (e.key === "Escape") setSelPopup(null);
-    };
-    document.addEventListener("mouseup", onUp);
-    ta.addEventListener("keyup", onKey);
-    return () => {
-      document.removeEventListener("mouseup", onUp);
-      ta.removeEventListener("keyup", onKey);
-    };
-  }, [updateSelFromTextarea]);
-
-  const applyEdit = (nextText: string) => {
-    if (!selPopup || !textareaRef.current) return;
-    const ta = textareaRef.current;
-    const { start, end } = selPopup;
-    const before = content.slice(0, start);
-    const after = content.slice(end);
-    const newContent = before + nextText + after;
-    setContent(newContent);
-    setDirty(true);
-    requestAnimationFrame(() => {
-      ta.focus();
-      const newEnd = start + nextText.length;
-      ta.setSelectionRange(newEnd, newEnd);
-    });
-    setSelPopup(null);
-  };
-
-  const updateHighlight = useCallback(() => {
-    const layer = highlightLayerRef.current;
-    const mirror = mirrorRef.current;
-    const ta = textareaRef.current;
-    if (!layer || !mirror || !ta) return;
-
-    if (!selPopup) {
-      layer.innerHTML = "";
-      return;
+    })();
+    pending.current = task;
+    return task;
+  }, [book.id, onBookChange]);
+  const flush = useCallback(async () => {
+    if (pending.current && !(await pending.current)) return false;
+    while (
+      draftRef.current.id &&
+      draftRef.current.revision !== savedRef.current
+    ) {
+      if (!(await persist())) return false;
     }
-
-    const style = window.getComputedStyle(ta);
-    const props = [
-      "boxSizing", "width", "height", "overflowX", "overflowY",
-      "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
-      "borderStyle", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
-      "fontStyle", "fontVariant", "fontWeight", "fontStretch", "fontSize",
-      "fontSizeAdjust", "lineHeight", "fontFamily", "textAlign", "textTransform",
-      "textIndent", "textDecoration", "letterSpacing", "wordSpacing", "tabSize",
-      "whiteSpace", "wordWrap", "overflowWrap",
-    ] as const;
-    for (const p of props) (mirror.style as any)[p] = (style as any)[p];
-    mirror.style.position = "absolute";
-    mirror.style.visibility = "hidden";
-    mirror.style.pointerEvents = "none";
-    mirror.style.left = "0";
-    mirror.style.top = "0";
-    mirror.style.width = `${ta.clientWidth}px`;
-    mirror.style.height = "auto";
-    mirror.style.whiteSpace = "pre-wrap";
-    mirror.style.wordWrap = "break-word";
-    mirror.style.overflowWrap = "break-word";
-
-    const { start, end } = selPopup;
-    const beforeText = ta.value.substring(0, start);
-    const selectedText = ta.value.substring(start, end);
-
-    mirror.innerHTML = "";
-    const beforeNode = document.createTextNode(beforeText.replace(/\n$/g, "\n\u200b"));
-    const marker = document.createElement("span");
-    marker.textContent = selectedText || ".";
-    mirror.appendChild(beforeNode);
-    mirror.appendChild(marker);
-    const afterNode = document.createTextNode("\u200b");
-    mirror.appendChild(afterNode);
-
-    const range = document.createRange();
-    range.setStart(marker, 0);
-    range.setEnd(marker, marker.childNodes.length);
-    const rects = range.getClientRects();
-
-    layer.innerHTML = "";
-    const taRect = ta.getBoundingClientRect();
-
-    Array.from(rects).forEach((r) => {
-      if (r.width <= 0 || r.height <= 0) return;
-      const mark = document.createElement("div");
-      mark.style.position = "absolute";
-      // The mirror sits at the same origin as the textarea, so the range rects
-      // are already container-relative (padding included). Only the textarea's
-      // own scroll must be subtracted so marks track the visible text.
-      mark.style.left = `${r.left - taRect.left - ta.scrollLeft}px`;
-      mark.style.top = `${r.top - taRect.top - ta.scrollTop}px`;
-      mark.style.width = `${r.width}px`;
-      mark.style.height = `${r.height}px`;
-      mark.style.borderRadius = "3px";
-      mark.style.background = "rgba(99, 102, 241, 0.22)";
-      mark.style.boxShadow = "inset 0 0 0 1px rgba(99, 102, 241, 0.35)";
-      mark.style.pointerEvents = "none";
-      layer.appendChild(mark);
-    });
-  }, [selPopup]);
-
+    return true;
+  }, [persist]);
+  useImperativeHandle(ref, () => ({ flush }), [flush]);
+  const dirty = draft.revision !== savedRevision;
   useEffect(() => {
-    updateHighlight();
-  }, [updateHighlight, content]);
-
+    if (!dirty || saving || saveError) return;
+    const timer = setTimeout(() => {
+      void persist();
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [dirty, draft.revision, saving, saveError, persist]);
   useEffect(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const onScroll = () => updateHighlight();
-    ta.addEventListener("scroll", onScroll, { passive: true });
-    const onResize = () => updateHighlight();
-    window.addEventListener("resize", onResize);
-    return () => {
-      ta.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onResize);
+    const unload = (event: BeforeUnloadEvent) => {
+      if (draftRef.current.revision !== savedRef.current) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
     };
-  }, [updateHighlight]);
-
+    const keyboard = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void flush();
+      }
+    };
+    window.addEventListener("beforeunload", unload);
+    window.addEventListener("keydown", keyboard);
+    return () => {
+      window.removeEventListener("beforeunload", unload);
+      window.removeEventListener("keydown", keyboard);
+    };
+  }, [flush]);
+  async function select(chapter: SerializedChapter) {
+    if (chapter.id === draft.id || mutating) return;
+    if (await flush())
+      load(
+        bookRef.current.chapters?.find((c) => c.id === chapter.id) ?? chapter,
+      );
+  }
+  async function add(event: React.FormEvent) {
+    event.preventDefault();
+    if (!newTitle.trim() || mutating) return;
+    setMutating(true);
+    try {
+      if (!(await flush())) return;
+      const data = await apiFetch<{ chapter: SerializedChapter }>(
+        `/api/books/${book.id}/chapters`,
+        { method: "POST", body: JSON.stringify({ title: newTitle.trim() }) },
+      );
+      await refreshBook();
+      load(data.chapter);
+      setNewTitle("");
+      setAdding(false);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not add section", "error");
+    } finally {
+      setMutating(false);
+    }
+  }
+  async function remove() {
+    if (
+      mutating ||
+      !window.confirm(`Delete “${draft.title}” and its saved versions?`)
+    )
+      return;
+    setMutating(true);
+    try {
+      if (!(await flush())) return;
+      await apiFetch(`/api/chapters/${draft.id}`, { method: "DELETE" });
+      const next = await refreshBook();
+      localStorage.removeItem(recoveryKey(draft.id));
+      if (next.chapters?.length) load(next.chapters[0]);
+      else {
+        draftRef.current = empty;
+        savedRef.current = 0;
+        setDraft(empty);
+        setSavedRevision(0);
+      }
+    } catch (e) {
+      toast(
+        e instanceof Error ? e.message : "Could not delete section",
+        "error",
+      );
+    } finally {
+      setMutating(false);
+    }
+  }
+  async function move(id: string, offset: number) {
+    if (mutating) return;
+    setMutating(true);
+    try {
+      if (!(await flush())) return;
+      const sections = [...(bookRef.current.chapters ?? [])];
+      const index = sections.findIndex((c) => c.id === id);
+      const other = index + offset;
+      if (other < 0 || other >= sections.length) return;
+      [sections[index], sections[other]] = [sections[other], sections[index]];
+      await apiFetch(`/api/books/${book.id}/reorder`, {
+        method: "PUT",
+        body: JSON.stringify(
+          sections.map((c, order) => ({ id: c.id, order, type: c.type })),
+        ),
+      });
+      await refreshBook();
+    } catch (e) {
+      toast(
+        e instanceof Error ? e.message : "Could not reorder sections",
+        "error",
+      );
+    } finally {
+      setMutating(false);
+    }
+  }
+  function insert(text: string) {
+    const field = textarea.current,
+      current = draftRef.current.content,
+      start = field?.selectionStart ?? current.length,
+      end = field?.selectionEnd ?? start;
+    edit({ content: current.slice(0, start) + text + current.slice(end) });
+    setSelection(null);
+    requestAnimationFrame(() => {
+      field?.focus();
+      field?.setSelectionRange(start + text.length, start + text.length);
+    });
+  }
+  function stepHistory(direction: "undo" | "redo") {
+    const source = direction === "undo" ? undo.current : redo.current,
+      destination = direction === "undo" ? redo.current : undo.current;
+    const text = source.pop();
+    if (text === undefined) return;
+    destination.push(draftRef.current.content);
+    edit({ content: text }, false);
+  }
+  async function generate() {
+    if (aiBusy) return;
+    const requestChapterId = draft.id;
+    setAiBusy(true);
+    setAiDraft(null);
+    try {
+      const data = await apiFetch<{ content: string }>("/api/ai/chapter", {
+        method: "POST",
+        body: JSON.stringify({
+          bookTitle: book.title,
+          chapterTitle: draft.title,
+          outline:
+            `${format.instruction}\nLanguage: ${book.language}\nAudience: ${book.audience}\nBrief: ${book.writingGoal}\nSection notes: ${draft.notes}\nExisting content: ${draft.content.slice(-2000)}`.slice(
+              0,
+              12000,
+            ),
+          tone: book.tone,
+          targetWords,
+          provider: settings.aiProvider,
+          model:
+            (settings.aiProvider === "openrouter"
+              ? settings.openRouterModel
+              : settings.openAIModel) || undefined,
+        }),
+      });
+      if (draftRef.current.id === requestChapterId) setAiDraft(data.content);
+      else toast("The draft belongs to the previous section. Return to it to generate a new draft.", "info");
+    } catch (e) {
+      toast(
+        e instanceof Error ? e.message : "Could not generate a draft",
+        "error",
+      );
+    } finally {
+      setAiBusy(false);
+    }
+  }
+  async function getHistory() {
+    setHistoryLoading(true);
+    const requestChapterId = draft.id;
+    try {
+      const data = await apiFetch<{ versions: NonNullable<typeof history> }>(
+        `/api/chapters/${draft.id}/versions`,
+      );
+      if (draftRef.current.id === requestChapterId) setHistory(data.versions);
+    } catch (e) {
+      toast(
+        e instanceof Error ? e.message : "Could not load versions",
+        "error",
+      );
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+  const words = draft.content.trim().split(/\s+/).filter(Boolean).length;
+  const aiAvailable =
+    settings.aiProvider === "openrouter"
+      ? capabilities.openrouter
+      : capabilities.openai;
   return (
-    <div className="relative flex bg-[#fdfbf7] rounded-2xl overflow-hidden border border-[#eedec9] shadow-[0_10px_40px_-15px_rgba(200,180,150,0.5)] min-h-[800px] text-zinc-800 font-sans">
-
-      {/* Sidebar */}
-      <div className="w-72 bg-[#fdfbf7] border-r border-[#eedec9] flex flex-col shrink-0">
-        <div className="p-5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-zinc-800">Chapters</h2>
-            <div className="flex items-center justify-center w-4 h-4 rounded-full border border-zinc-300 text-[10px] text-zinc-500">?</div>
-          </div>
-          <button className="text-xs text-zinc-500 hover:text-zinc-800 font-medium transition">Hide</button>
-        </div>
-
-        <div className="px-4 mb-4">
+    <div className={`studio-writer ${focusMode ? "focus-mode" : ""}`}>
+      <div className="studio-writer-toolbar">
+        <div className="studio-toolbar-group">
           <button
-            onClick={addChapter}
-            disabled={adding}
-            className="w-full py-2.5 px-4 bg-white border border-[#eedec9] rounded-xl text-sm font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50 hover:border-zinc-300 transition flex justify-center items-center gap-2"
+            type="button"
+            className="studio-tool"
+            onClick={() => setSidebar(!sidebar)}
+            aria-pressed={sidebar}
+            title="Toggle table of contents"
           >
-            {adding ? <Spinner className="h-4 w-4" /> : "Add chapter"}
+            <FileText />
+            <span>Contents</span>
+          </button>
+          <span className="studio-toolbar-divider" />
+          <select
+            aria-label="Manuscript display font"
+            value={font}
+            onChange={(e) => setFont(e.target.value)}
+          >
+            <option value="serif">Literary serif</option>
+            <option value="sans-serif">Clean sans</option>
+            <option value="monospace">Typewriter</option>
+          </select>
+          <select
+            aria-label="Manuscript display font size"
+            value={fontSize}
+            onChange={(e) => setFontSize(Number(e.target.value))}
+          >
+            {[16, 18, 20, 22].map((n) => (
+              <option key={n} value={n}>
+                {n} px
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="studio-toolbar-group">
+          <span
+            className={`studio-save-status ${saveError ? "error" : ""}`}
+            role="status"
+          >
+            {saving ? (
+              <Spinner />
+            ) : dirty ? (
+              <span className="studio-dot amber" />
+            ) : (
+              <Check />
+            )}
+            {saving
+              ? "Saving…"
+              : saveError
+                ? "Save failed"
+                : dirty
+                  ? "Unsaved changes"
+                  : "All changes saved"}
+          </span>
+          <button
+            className="studio-tool"
+            disabled={!dirty || saving}
+            onClick={() => void flush()}
+          >
+            Save
+          </button>
+          <button
+            className="studio-tool"
+            onClick={() => setFocusMode(!focusMode)}
+            aria-pressed={focusMode}
+          >
+            {focusMode ? "Exit focus" : "Focus"}
+          </button>
+          <button
+            className="studio-tool"
+            onClick={() => setNotesOpen(!notesOpen)}
+            aria-pressed={notesOpen}
+          >
+            Notes
           </button>
         </div>
-
-        <div data-lenis-prevent className="flex-1 overflow-y-auto px-4 pb-6 space-y-2">
-          {chapters.map((c, idx) => {
-            const isActive = c.id === activeId;
-            return (
-              <div
-                key={c.id}
-                onClick={() => setActiveId(c.id)}
-                className={`group flex items-center gap-3 p-3 rounded-xl cursor-pointer transition ${
-                  isActive
-                    ? "bg-[#f4ebe1] shadow-sm border border-[#e8dac5]"
-                    : "bg-transparent border border-transparent hover:bg-zinc-50"
-                }`}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className={`text-xs font-semibold mb-0.5 ${isActive ? "text-zinc-800" : "text-zinc-500"}`}>
-                    Chapter {idx + 1}
-                  </div>
-                  <div className={`text-sm truncate ${isActive ? "text-zinc-900" : "text-zinc-700"}`}>
-                    {c.title || "Untitled"}
+      </div>
+      <div className="studio-mobile-chapter-picker">
+        <label htmlFor="mobile-section">Current section</label>
+        <select id="mobile-section" value={draft.id} onChange={e => {
+          const chapter = book.chapters?.find(c => c.id === e.target.value);
+          if (chapter) void select(chapter);
+        }}>
+          {(book.chapters ?? []).map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+        </select>
+      </div>
+      {saveError && (
+        <div className="studio-error" role="alert">
+          {saveError} <button onClick={() => void flush()}>Retry save</button>
+        </div>
+      )}
+      <div className="studio-writer-body">
+        {sidebar && (
+          <aside className="studio-contents">
+            <div className="studio-contents-heading">
+              <span className="studio-eyebrow">YOUR MANUSCRIPT</span>
+              <h2>
+                Table of contents <span>{book.chapters?.length ?? 0}</span>
+              </h2>
+            </div>
+            <div className="studio-chapter-list" data-lenis-prevent>
+              {(book.chapters ?? []).map((c, i) => (
+                <div
+                  className={`studio-chapter ${c.id === draft.id ? "active" : ""}`}
+                  key={c.id}
+                >
+                  <button
+                    className="studio-chapter-select"
+                    onClick={() => void select(c)}
+                    disabled={mutating}
+                  >
+                    <span className="studio-chapter-number">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span>
+                      <strong>
+                        {c.id === draft.id
+                          ? draft.title || "Untitled"
+                          : c.title}
+                      </strong>
+                      <small>
+                        {(c.id === draft.id
+                          ? words
+                          : c.wordCount
+                        ).toLocaleString()}{" "}
+                        words{" "}
+                        <span>
+                          ·{" "}
+                          {c.type === "FRONT_MATTER"
+                            ? "Front matter"
+                            : c.type === "BACK_MATTER"
+                              ? "Back matter"
+                              : format.unit}
+                        </span>
+                      </small>
+                    </span>
+                  </button>
+                  <div className="studio-chapter-move">
+                    <button
+                      aria-label={`Move ${c.title} up`}
+                      disabled={i === 0 || mutating}
+                      onClick={() => void move(c.id, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      aria-label={`Move ${c.title} down`}
+                      disabled={
+                        i === (book.chapters?.length ?? 0) - 1 || mutating
+                      }
+                      onClick={() => void move(c.id, 1)}
+                    >
+                      ↓
+                    </button>
                   </div>
                 </div>
-                <button className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-zinc-800 transition">
-                  <GripVertical className="h-4 w-4" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Main Editor */}
-      <div className="flex-1 flex flex-col relative bg-[#fdfbf7]">
-
-        {/* Editor Header */}
-        <div className="h-16 border-b border-[#eedec9] flex items-center justify-between px-6 bg-[#faf5ec] sticky top-0 z-10 shadow-[0_1px_0_rgba(255,255,255,0.6)]">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-[#f4ebe1] rounded-md text-zinc-700">
-              <FileText className="h-4 w-4" />
-            </div>
-            <input
-              value={title}
-              onChange={(e) => { setTitle(e.target.value); setDirty(true); }}
-              className="text-lg font-bold text-zinc-800 bg-transparent border-none outline-none w-[400px] placeholder-zinc-400"
-              placeholder="Chapter Title..."
-            />
-          </div>
-
-          <div className="flex items-center gap-6">
-            <span className="text-xs font-medium text-zinc-500">{wordCount} words</span>
-            <div className="flex items-center gap-2">
-              <span className={`text-xs font-medium flex items-center gap-1.5 ${
-                saving ? "text-amber-500" : autoSaved ? "text-emerald-500" : dirty ? "text-zinc-500" : "text-zinc-400"
-              }`}>
-                {saving ? (
-                  <span className="inline-flex h-3 w-3 rounded-full border-2 border-amber-300 border-t-amber-600 animate-spin" />
-                ) : autoSaved ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : dirty ? (
-                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                ) : null}
-                {saving ? "Saving…" : autoSaved ? "Saved" : dirty ? "Unsaved" : "Idle"}
-              </span>
-              <button
-                onClick={saveNow}
-                disabled={saving || !dirty}
-                title="Save now (Ctrl/Cmd+S)"
-                className={`inline-flex items-center justify-center rounded-lg px-2 py-0.5 text-xs font-semibold transition ${
-                  dirty ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-zinc-100 text-zinc-400 cursor-not-allowed"
-                }`}
-              >
-                {saving ? <Spinner className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-              </button>
-              <label className="flex items-center gap-1.5 text-xs text-zinc-600 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={autoSaveEnabled}
-                  onChange={(e) => setAutoSaveEnabled(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <span className="relative w-7 h-4 bg-zinc-200 rounded-full peer-checked:bg-indigo-500 transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition peer-checked:after:translate-x-3" />
-                Auto
-              </label>
-            </div>
-
-            <button
-              onClick={() => setShowLines(!showLines)}
-              className={`transition ${showLines ? "text-orange-500" : "hover:text-zinc-800"}`}
-              title="Toggle line numbers"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12h20"/><path d="M2 6h20"/><path d="M2 18h20"/></svg>
-            </button>
-          </div>
-
-          <button
-            onClick={() => setShowAI(!showAI)}
-            className="ai-fab-video flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white shadow-[0_8px_24px_-8px_rgba(99,102,241,.8)] transition hover:scale-[1.06] active:scale-95"
-            title="AI Assistant"
-          >
-            <video
-              src="/covers/Untitled - September 21, 2026 at 18.21.22.mp4"
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="h-full w-full object-cover"
-            />
-          </button>
-        </div>
-
-        {/* Floating Toolbar */}
-        <div className="absolute right-6 top-20 bg-white border border-[#eedec9] rounded-lg shadow-sm flex p-1 z-20">
-          <button
-            onClick={() => {
-              textareaRef.current?.focus();
-              document.execCommand("undo");
-              setContent(textareaRef.current?.value ?? content);
-              setDirty(true);
-            }}
-            className="p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 rounded transition"
-            title="Undo"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-          </button>
-          <button
-            onClick={() => {
-              textareaRef.current?.focus();
-              document.execCommand("redo");
-              setContent(textareaRef.current?.value ?? content);
-              setDirty(true);
-            }}
-            className="p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 rounded transition"
-            title="Redo"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
-          </button>
-          <div className="w-px bg-[#eedec9] mx-1 my-1" />
-        </div>
-
-        {/* Text Area with Line Numbers */}
-        <div className="flex-1 flex overflow-hidden relative">
-
-          {showLines && (
-            <div
-              ref={linesRef}
-              className="w-12 bg-transparent text-right pr-3 pt-8 pb-8 text-xs text-[#d3cabc] font-mono select-none overflow-hidden shrink-0 border-r border-[#eedec9]/50"
-            >
-              {Array.from({ length: lineCount }).map((_, i) => (
-                <div key={i} className="leading-8 h-8">{i + 1}</div>
               ))}
             </div>
-          )}
-
-          <div className="flex-1 relative">
-            <div
-              ref={highlightLayerRef}
-              aria-hidden
-              className="pointer-events-none absolute inset-0 p-8 overflow-hidden"
-              style={{ whiteSpace: "pre-wrap" }}
-            />
-            <div ref={mirrorRef} aria-hidden />
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => {
-                setContent(e.target.value);
-                setDirty(true);
-                if (selPopup) setSelPopup(null);
-              }}
-              onScroll={handleScroll}
-              onBlur={() => {
-                setTimeout(() => {
-                  const ta = textareaRef.current;
-                  if (!ta) { setSelPopup(null); return; }
-                  if (document.activeElement !== ta && !selPopup) {
-                    setSelPopup(null);
+            {adding ? (
+              <form className="studio-add-section" onSubmit={add}>
+                <input
+                  autoFocus
+                  className="studio-input"
+                  aria-label="New section title"
+                  required
+                  maxLength={200}
+                  placeholder={`${format.unit} title`}
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                />
+                <div>
+                  <button className="studio-button primary" disabled={mutating}>
+                    {mutating ? <Spinner /> : <Plus />}Add
+                  </button>
+                  <button
+                    type="button"
+                    className="studio-button secondary"
+                    onClick={() => setAdding(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                className="studio-add-button"
+                onClick={() => setAdding(true)}
+              >
+                <Plus />
+                Add {format.unit.toLowerCase()}
+              </button>
+            )}
+            <div className="studio-contents-note">
+              <span className="studio-dot" />
+              <p>
+                A first draft is a beginning.
+                <br />
+                Give yourself room to write.
+              </p>
+            </div>
+          </aside>
+        )}
+        <div className="studio-manuscript-space">
+          {!draft.id ? (
+            <div className="studio-empty">
+              <FileText className="h-10 w-10" />
+              <h2>Your next page is waiting.</h2>
+              <p>Add a section to start your manuscript.</p>
+              <button
+                className="studio-button primary"
+                onClick={() => {
+                  setSidebar(true);
+                  setAdding(true);
+                }}
+              >
+                <Plus />
+                Add first section
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="studio-manuscript-tools">
+                <button
+                  className="studio-tool"
+                  title="Undo manuscript change"
+                  disabled={!undo.current.length}
+                  onClick={() => stepHistory("undo")}
+                >
+                  <ArrowLeft />
+                  Undo
+                </button>
+                <button
+                  className="studio-tool"
+                  title="Redo manuscript change"
+                  disabled={!redo.current.length}
+                  onClick={() => stepHistory("redo")}
+                >
+                  <ArrowRight />
+                  Redo
+                </button>
+                <span className="studio-toolbar-divider" />
+                <button
+                  className="studio-tool"
+                  onClick={() => insert("\n\nSection heading\n\n")}
+                >
+                  Heading
+                </button>
+                <button
+                  className="studio-tool"
+                  onClick={() =>
+                    insert("\n• First item\n• Second item\n• Third item\n")
                   }
-                }, 120);
-              }}
-              placeholder="Start writing your chapter here…  Tip: highlight any text to open the AI editor (Proofread, Rewrite, Change tone, etc.)"
-              data-lenis-prevent
-              className="absolute inset-0 resize-none outline-none border-none bg-transparent p-8 text-[15px] leading-8 text-zinc-800 placeholder-zinc-300 font-serif"
-              spellCheck={false}
-            />
-          </div>
+                >
+                  List
+                </button>
+                {format.id === "workbook" && (
+                  <button
+                    className="studio-tool"
+                    onClick={() =>
+                      insert(
+                        "\nYour response:\n________________________________________________\n________________________________________________\n________________________________________________\n",
+                      )
+                    }
+                  >
+                    Response lines
+                  </button>
+                )}
+                <button
+                  className="studio-tool"
+                  onClick={() => void getHistory()}
+                >
+                  {historyLoading ? <Spinner /> : null}Versions
+                </button>
+              </div>
+              <article className="studio-manuscript-page">
+                <div className="studio-page-topline">
+                  <span>
+                    {format.unit.toUpperCase()}{" "}
+                    {String(
+                      (book.chapters ?? []).findIndex(
+                        (c) => c.id === draft.id,
+                      ) + 1,
+                    ).padStart(2, "0")}
+                  </span>
+                  <select
+                    value={draft.type}
+                    aria-label="Section type"
+                    onChange={(e) =>
+                      edit({ type: e.target.value as ChapterType })
+                    }
+                  >
+                    <option value="CHAPTER">Main content</option>
+                    <option value="FRONT_MATTER">Front matter</option>
+                    <option value="BACK_MATTER">Back matter</option>
+                  </select>
+                  <button
+                    className="studio-icon-button"
+                    title="Delete this section"
+                    aria-label="Delete this section"
+                    disabled={mutating}
+                    onClick={() => void remove()}
+                  >
+                    <Trash />
+                  </button>
+                </div>
+                <input
+                  className="studio-chapter-title"
+                  aria-label="Section title"
+                  value={draft.title}
+                  maxLength={200}
+                  placeholder="Give this chapter a title"
+                  onChange={(e) => edit({ title: e.target.value })}
+                />
+                <div className="studio-page-rule" />
+                <textarea
+                  ref={textarea}
+                  className="studio-manuscript-input"
+                  aria-label="Manuscript content"
+                  spellCheck
+                  maxLength={200000}
+                  value={draft.content}
+                  style={{ fontSize, fontFamily: font }}
+                  placeholder={
+                    format.id === "workbook"
+                      ? "Start with a learning objective, a short explanation, and an exercise. Leave space for your reader’s response…"
+                      : format.id === "guide"
+                        ? "What will your reader accomplish? Begin with a clear first step…"
+                        : format.id === "audiobook"
+                          ? "Write as you speak. Welcome your listener and take them into the story…"
+                          : "Every good book starts with a first sentence. This is yours…"
+                  }
+                  onChange={(e) => {
+                    edit({ content: e.target.value });
+                    setSelection(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (
+                      (e.metaKey || e.ctrlKey) &&
+                      e.key.toLowerCase() === "z"
+                    ) {
+                      e.preventDefault();
+                      stepHistory(e.shiftKey ? "redo" : "undo");
+                    }
+                    if (e.key === "Escape") setSelection(null);
+                  }}
+                  onMouseUp={() => {
+                    const field = textarea.current;
+                    if (
+                      !field ||
+                      field.selectionEnd - field.selectionStart < 2 ||
+                      !aiAvailable
+                    ) {
+                      setSelection(null);
+                      return;
+                    }
+                    const rect = field.getBoundingClientRect();
+                    setSelection({
+                      text: field.value.slice(
+                        field.selectionStart,
+                        field.selectionEnd,
+                      ),
+                      start: field.selectionStart,
+                      end: field.selectionEnd,
+                      anchor: {
+                        x: Math.min(rect.right - 100, rect.left + 140),
+                        yTop: rect.top + 20,
+                        yBottom: rect.top + 60,
+                      },
+                    });
+                  }}
+                />
+                <div className="studio-page-footer">
+                  <span>{book.title}</span>
+                  <span>
+                    {words.toLocaleString()} words ·{" "}
+                    {Math.max(1, Math.ceil(words / 250))} est. pages
+                  </span>
+                </div>
+              </article>
+              <div className="studio-writing-tip">
+                {format.id === "audiobook"
+                  ? "Tip: Read your draft aloud. If a sentence is hard to say, simplify it."
+                  : format.id === "workbook"
+                    ? "Tip: Give every exercise a clear goal and enough room for the reader’s response."
+                    : "Tip: Keep writing. A first draft doesn’t have to be a final draft."}
+              </div>
+            </>
+          )}
         </div>
-
-        {/* AI Assistant Popup */}
-        {showAI && (
-          <AIAssistantPopup
-            bookId={book.id}
-            chapterId={active?.id ?? null}
-            chapterTitle={title}
-            onInsert={(text) => {
-              const ta = textareaRef.current;
-              if (ta && ta.selectionEnd > ta.selectionStart) {
-                const start = ta.selectionStart;
-                const end = ta.selectionEnd;
-                const next = content.slice(0, start) + text + content.slice(end);
-                setContent(next);
-                requestAnimationFrame(() => {
-                  ta.focus();
-                  const p = start + text.length;
-                  ta.setSelectionRange(p, p);
-                });
-              } else {
-                setContent((prev) => prev + (prev.endsWith("\n") ? "" : "\n") + text);
-              }
-              setDirty(true);
-            }}
-            onClose={() => setShowAI(false)}
-          />
+        {notesOpen && (
+          <aside className="studio-writing-notes">
+            <div className="studio-notes-title">
+              <Sparkles />
+              <h2>Your writing companion</h2>
+              <button className="studio-icon-button studio-notes-close" aria-label="Close writing notes" onClick={() => setNotesOpen(false)}><X /></button>
+            </div>
+            <label className="studio-label">
+              {format.unit} notes
+              <textarea
+                className="studio-input"
+                rows={10}
+                value={draft.notes}
+                maxLength={10000}
+                disabled={!draft.id}
+                onChange={(e) => edit({ notes: e.target.value })}
+                placeholder="Capture the purpose, key points, scenes, or examples for this section."
+              />
+            </label>
+            <div className="studio-notes-brief">
+              <span className="studio-eyebrow">KEEP YOUR READER IN MIND</span>
+              <strong>{book.audience || "Who are you writing for?"}</strong>
+              <p>
+                {book.writingGoal ||
+                  "Add an audience and writing goal in Project details to give your draft a direction."}
+              </p>
+              <small>
+                {book.tone} voice · {book.language}
+              </small>
+            </div>
+            <div className="studio-notes-ai">
+              <span className="studio-format-icon green">
+                <Sparkles />
+              </span>
+              <h3>A spark when you need one.</h3>
+              <p>
+                {aiAvailable
+                  ? `Generate a ${format.unit.toLowerCase()} using your brief and notes. Review it before adding it to your manuscript.`
+                  : "Write freely with every editor tool. Connect an AI provider to generate and polish drafts."}
+              </p>
+              <button
+                className="studio-button primary"
+                disabled={!draft.id || !aiAvailable || aiBusy}
+                onClick={() => void generate()}
+              >
+                {aiBusy ? <Spinner /> : <Sparkles />}
+                {aiBusy ? "Writing a draft…" : "Generate a draft"}
+              </button>
+              {aiAvailable && <p className="studio-footnote">Target: about {targetWords.toLocaleString()} words. Provider usage charges apply.</p>}
+              <LinkToSettings />
+            </div>
+          </aside>
         )}
       </div>
-
-      {selPopup && (
+      {selection && (
         <SelectionAiPopup
-          selectedText={selPopup.text}
+          selectedText={selection.text}
           bookId={book.id}
-          chapterId={active?.id ?? null}
-          chapterTitle={title}
-          anchor={selPopup.anchor}
-          onClose={() => setSelPopup(null)}
-          onApply={applyEdit}
-        />
-      )}
-
-      {/* Tutorial Overlay */}
-      {showTutorial && (
-        <OnboardingTutorial
-          onFinish={() => {
-            setShowTutorial(false);
-            localStorage.setItem("aibookstudio-tutorial-seen", "true");
+          chapterId={draft.id}
+          chapterTitle={draft.title}
+          anchor={selection.anchor}
+          onClose={() => setSelection(null)}
+          onApply={(text) => {
+            edit({
+              content:
+                draft.content.slice(0, selection.start) +
+                text +
+                draft.content.slice(selection.end),
+            });
+            setSelection(null);
           }}
         />
       )}
+      {(aiDraft !== null || history !== null) && (
+        <div className="studio-modal-backdrop">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={aiDraft !== null ? "Review AI draft" : "Saved versions"}
+            ref={reviewRef}
+            tabIndex={-1}
+            className="studio-shell studio-modal studio-review-modal"
+          >
+            <button
+              className="studio-icon-button studio-modal-close"
+              aria-label="Close review"
+              onClick={() => {
+                setAiDraft(null);
+                setHistory(null);
+              }}
+            >
+              <X />
+            </button>
+            <span className="studio-eyebrow">
+              {aiDraft !== null
+                ? "REVIEW BEFORE YOU INSERT"
+                : "YOUR WRITING HISTORY"}
+            </span>
+            <h2 className="studio-title">
+              {aiDraft !== null
+                ? "A starting point, in your hands."
+                : "Earlier versions"}
+            </h2>
+            {aiDraft !== null ? (
+              <>
+                <div className="studio-draft-review" data-lenis-prevent>
+                  {aiDraft}
+                </div>
+                <div className="studio-form-actions">
+                  <button
+                    className="studio-button secondary"
+                    onClick={() => setAiDraft(null)}
+                  >
+                    Discard
+                  </button>
+                  <button
+                    className="studio-button primary"
+                    onClick={() => {
+                      edit({
+                        content:
+                          draft.content +
+                          (draft.content ? "\n\n" : "") +
+                          aiDraft,
+                      });
+                      setAiDraft(null);
+                    }}
+                  >
+                    Append to manuscript <Plus />
+                  </button>
+                </div>
+              </>
+            ) : history?.length ? (
+              history.map((version) => (
+                <div className="studio-version" key={version.id}>
+                  <time>{new Date(version.createdAt).toLocaleString()}</time>
+                  <p>{version.content.slice(0, 240)}…</p>
+                  <button
+                    className="studio-button secondary"
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          "Replace this draft with the selected version? The current saved text will be kept in version history when you save.",
+                        )
+                      )
+                        return;
+                      edit({ content: version.content });
+                      setHistory(null);
+                    }}
+                  >
+                    Restore to editor
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p className="studio-muted">
+                Previous manuscript text is kept here whenever you save a
+                changed draft.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
-}
-
-function caretCoords(
-  ta: HTMLTextAreaElement,
-  pos: number
-): { x: number; yTop: number; yBottom: number } {
-  const doc = document;
-  const div = doc.createElement("div");
-  const style = window.getComputedStyle(ta);
-  const props = [
-    "boxSizing", "width", "height", "overflowX", "overflowY",
-    "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
-    "borderStyle", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
-    "fontStyle", "fontVariant", "fontWeight", "fontStretch", "fontSize",
-    "fontSizeAdjust", "lineHeight", "fontFamily", "textAlign", "textTransform",
-    "textIndent", "textDecoration", "letterSpacing", "wordSpacing", "tabSize",
-  ] as const;
-  // The mirror div must sit exactly on top of the textarea in *viewport*
-  // coordinates (offset by the textarea's internal scroll). Otherwise the
-  // measured caret span returns document-flow offsets and the selection
-  // popup lands at the wrong place on screen.
-  div.style.position = "fixed";
-  div.style.visibility = "hidden";
-  div.style.whiteSpace = "pre-wrap";
-  div.style.wordWrap = "break-word";
-  div.style.overflowWrap = "break-word";
-  for (const p of props) (div.style as any)[p] = (style as any)[p];
-  div.style.width = `${ta.clientWidth}px`;
-  div.style.height = "auto";
-  div.style.margin = "0";
-
-  const rect = ta.getBoundingClientRect();
-  div.style.top = `${rect.top - ta.scrollTop}px`;
-  div.style.left = `${rect.left - ta.scrollLeft}px`;
-
-  const before = ta.value.substring(0, Math.max(0, pos));
-  const spanText = doc.createElement("span");
-  const beforeText = before.replace(/\n$/g, "\n\u200b");
-  spanText.textContent = ".";
-  div.textContent = beforeText;
-  div.appendChild(spanText);
-  doc.body.appendChild(div);
-  const spanRect = spanText.getBoundingClientRect();
-  let x = spanRect.left;
-  let yTop = spanRect.top;
-  let yBottom = spanRect.bottom;
-  doc.body.removeChild(div);
-
-  if (x === 0 && yTop === 0 && yBottom === 0) {
-    x = rect.left + ta.clientWidth / 2;
-    yTop = rect.top + 8;
-    yBottom = rect.top + 40;
-  }
-  return { x, yTop, yBottom };
+});
+function LinkToSettings() {
+  return (
+    <a className="studio-text-link" href="/settings">
+      AI preferences →
+    </a>
+  );
 }

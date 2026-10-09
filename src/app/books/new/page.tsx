@@ -1,496 +1,518 @@
 "use client";
-
-import { useState, useEffect, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { BookIdea } from "@/types";
+import { BOOK_FORMATS, getFormatById } from "@/lib/book-formats";
 import { apiFetch } from "@/lib/client";
 import { useToast } from "@/components/ui/toast";
 import { useUserSettings } from "@/components/user-settings-context";
-import { getFormatById, BOOK_FORMATS } from "@/lib/book-formats";
+import { FormatGrid } from "@/components/studio/format-grid";
+import { FormatIcon } from "@/components/studio/format-icon";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
   Sparkles,
   Spinner,
-  BookOpen,
-  Tablet,
-  Compass,
-  ClipboardList,
-  Headphones,
 } from "@/components/icons";
+import type { BookIdea } from "@/types";
 
-const GENRES = [
-  "Fantasy",
-  "Science Fiction",
-  "Mystery / Thriller",
-  "Romance",
-  "Horror",
-  "Literary Fiction",
-  "Young Adult",
-  "Children's Book",
-  "Self-Help",
-  "Business",
-  "Biography / Memoir",
-  "History",
-  "Science & Technology",
-  "Health & Wellness",
-  "Poetry",
-];
-
-const LANGUAGES = ["English", "Spanish", "French", "German", "Portuguese", "Chinese", "Japanese"];
-
-const FORMAT_ICONS: Record<string, React.ReactNode> = {
-  book: <BookOpen className="h-5 w-5 text-indigo-400" />,
-  ebook: <Tablet className="h-5 w-5 text-indigo-400" />,
-  guide: <Compass className="h-5 w-5 text-indigo-400" />,
-  workbook: <ClipboardList className="h-5 w-5 text-indigo-400" />,
-  audiobook: <Headphones className="h-5 w-5 text-indigo-400" />,
-};
-
-function NewBookPageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const toast = useToast();
-  const { settings, setSettings, availableModels, setAvailableModels } = useUserSettings();
-
-  const formatId = searchParams.get("format") || "book";
-  const selectedFormat = getFormatById(formatId) ?? BOOK_FORMATS[0];
-
-  const [genre, setGenre] = useState("");
-  const [keywords, setKeywords] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [ideas, setIdeas] = useState<BookIdea[] | null>(null);
-  const [selectedIdea, setSelectedIdea] = useState<BookIdea | null>(null);
-
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [language, setLanguage] = useState("English");
-  const [price, setPrice] = useState("24.99");
-  const [creating, setCreating] = useState(false);
-
-  const [guideTopic, setGuideTopic] = useState("");
-  const [guideAudience, setGuideAudience] = useState("");
-  const [guideLearningObjective, setGuideLearningObjective] = useState("");
-  const [guideDifficulty, setGuideDifficulty] = useState("Beginner");
-  const [guideSections, setGuideSections] = useState("");
-
-  const [workbookTopic, setWorkbookTopic] = useState("");
-  const [workbookLearningObjective, setWorkbookLearningObjective] = useState("");
-  const [workbookExercises, setWorkbookExercises] = useState("5");
-  const [workbookDifficulty, setWorkbookDifficulty] = useState("Beginner");
-  const [workbookAnswerKey, setWorkbookAnswerKey] = useState("");
-  const [workbookActivityStyle, setWorkbookActivityStyle] = useState("Written");
-
-  const [audioExistingBookId, setAudioExistingBookId] = useState("");
-  const [audioVoice, setAudioVoice] = useState("Male - Professional");
-  const [audioNarrationStyle, setAudioNarrationStyle] = useState("Narrative");
-  const [audioChapters, setAudioChapters] = useState("");
-
-  const [userBooks, setUserBooks] = useState<{ id: string; title: string }[]>([]);
-
+function NewProject() {
+  const params = useSearchParams(),
+    router = useRouter(),
+    toast = useToast();
+  const { settings } = useUserSettings();
+  const [formatId, setFormatId] = useState(
+    getFormatById(params.get("format") || "book")?.id || "book",
+  );
+  const format = getFormatById(formatId)!;
+  const [step, setStep] = useState(1),
+    [title, setTitle] = useState(""),
+    [description, setDescription] = useState(""),
+    [audience, setAudience] = useState(""),
+    [goal, setGoal] = useState(""),
+    [genre, setGenre] = useState(""),
+    [language, setLanguage] = useState("English"),
+    [tone, setTone] = useState("Engaging"),
+    [targetPages, setTargetPages] = useState(format.targetPages);
+  const [outline, setOutline] = useState(format.structure.join("\n"));
+  const [sourceBookId, setSourceBookId] = useState(""),
+    [books, setBooks] = useState<{ id: string; title: string }[]>([]);
+  const [creating, setCreating] = useState(false),
+    [thinking, setThinking] = useState(false),
+    [ideas, setIdeas] = useState<BookIdea[]>([]),
+    [error, setError] = useState("");
+  const [capabilities, setCapabilities] = useState({
+    openai: false,
+    openrouter: false,
+  });
   useEffect(() => {
-    if (formatId === "audiobook") {
-      (async () => {
-        try {
-          const res = await apiFetch<{ books: { id: string; title: string }[] }>("/api/books");
-          setUserBooks(res.books ?? []);
-        } catch {
-          setUserBooks([]);
-        }
-      })();
-    }
-  }, [formatId]);
-
-  async function fetchModels() {
-    if (settings.aiProvider !== "openrouter") return;
-    try {
-      const base = (settings.openRouterBaseUrl || "https://openrouter.ai/api/v1").replace(/\/+$/, "");
-      const res = await fetch(`${base}/models`, {
-        headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ""}` },
-      });
-      if (!res.ok) throw new Error(`Failed to fetch models (${res.status})`);
-      const data = (await res.json()) as { data?: { id?: string }[] };
-      const models = (data.data ?? []).map((m) => m.id ?? "").filter(Boolean);
-      if (models.length === 0) {
-        toast("No models found. Check your API key and connection.", "error");
-      } else {
-        setAvailableModels(models);
-      }
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "Failed to fetch models", "error");
-    }
+    apiFetch<typeof capabilities>("/api/studio/status")
+      .then(setCapabilities)
+      .catch(() => {});
+    apiFetch<{ books: typeof books }>("/api/books")
+      .then((data) => setBooks(data.books))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    const id = params.get("format");
+    if (id && getFormatById(id)) selectFormat(id);
+  }, [params]);
+  function selectFormat(id: string) {
+    const next = getFormatById(id)!;
+    setFormatId(next.id);
+    setTargetPages(next.targetPages);
+    setOutline(next.structure.join("\n"));
+    setSourceBookId("");
+    setIdeas([]);
   }
-
-  async function generateIdeas(e: React.FormEvent) {
-    e.preventDefault();
-    if (!genre.trim() || !keywords.trim()) {
-      toast("Enter both a genre and some keywords", "error");
-      return;
-    }
-    setGenerating(true);
+  const aiAvailable =
+    settings.aiProvider === "openrouter"
+      ? capabilities.openrouter
+      : capabilities.openai;
+  async function brainstorm() {
+    setThinking(true);
+    setError("");
     try {
-      const res = await apiFetch<{ ideas: BookIdea[] }>("/api/ai/idea", {
+      const data = await apiFetch<{ ideas: BookIdea[] }>("/api/ai/idea", {
         method: "POST",
         body: JSON.stringify({
-          genre: genre.trim(),
-          keywords: keywords.trim(),
+          genre: genre || format.name,
+          keywords: `Format: ${format.name}. Topic: ${goal}. Reader: ${audience}. ${format.instruction}`,
           provider: settings.aiProvider,
-          model: settings.aiProvider === "openrouter" ? settings.openRouterModel : settings.openAIModel,
+          model:
+            (settings.aiProvider === "openrouter"
+              ? settings.openRouterModel
+              : settings.openAIModel) || undefined,
         }),
       });
-      setIdeas(res.ideas);
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Idea generation failed", "error");
+      setIdeas(data.ideas);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not generate ideas.");
     } finally {
-      setGenerating(false);
+      setThinking(false);
     }
   }
-
-  function chooseIdea(idea: BookIdea) {
-    setSelectedIdea(idea);
-    setTitle(idea.title);
-    setDescription(idea.synopsis);
-    setGenre((g) => g || "General");
-  }
-
-  async function createBook(e: React.FormEvent) {
-    e.preventDefault();
+  async function create(event: React.FormEvent) {
+    event.preventDefault();
+    if (creating) return;
+    const sections = outline
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
     if (!title.trim()) {
-      toast("Your book needs a title", "error");
+      setStep(2);
+      setError("Give your project a title before creating it.");
+      return;
+    }
+    if (!sourceBookId && (sections.length < 1 || sections.length > 60)) {
+      setError("Add between 1 and 60 section titles, one per line.");
       return;
     }
     setCreating(true);
+    setError("");
     try {
-      const body: Record<string, unknown> = {
-        title: title.trim(),
-        description: description.trim() || null,
-        genre: genre.trim() || null,
-        format: formatId,
-        language,
-        price: Number(price) || 0,
-      };
-
-      if (formatId === "guide") {
-        body.guideTopic = guideTopic;
-        body.learningObjective = guideLearningObjective;
-        body.difficulty = guideDifficulty;
-        body.sections = guideSections;
-      } else if (formatId === "workbook") {
-        body.workbookTopic = workbookTopic;
-        body.learningObjective = workbookLearningObjective;
-        body.numberOfExercises = Number(workbookExercises) || 5;
-        body.difficulty = workbookDifficulty;
-        body.answerKey = workbookAnswerKey || null;
-        body.activityStyle = workbookActivityStyle;
-      } else if (formatId === "audiobook") {
-        body.audioBookId = audioExistingBookId || null;
-        body.audioVoice = audioVoice;
-        body.audioNarrationStyle = audioNarrationStyle;
-        body.audioChapters = audioChapters || null;
-      }
-
-      const res = await apiFetch<{ book: { id: string } }>("/api/books", {
+      const data = await apiFetch<{ book: { id: string } }>("/api/books", {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          title: title.trim(),
+          description,
+          genre: genre || null,
+          format: formatId,
+          language,
+          audience,
+          writingGoal: goal,
+          tone,
+          targetPages,
+          outline: sourceBookId ? undefined : sections,
+          sourceBookId: sourceBookId || undefined,
+        }),
       });
-      toast("Book created — happy writing! ✍️", "success");
-      router.push(`/books/${res.book.id}`);
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not create book", "error");
+      toast("Your writing space is ready", "success");
+      router.push(`/books/${data.book.id}`);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Could not create the project.",
+      );
       setCreating(false);
     }
   }
-
-  const hasIdeaStep = !["audiobook", "guide", "workbook"].includes(formatId);
-  const hasChosenIdea = selectedIdea !== null;
-  const showDetails = hasChosenIdea || !hasIdeaStep;
-
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <Link href="/dashboard" className="btn-ghost -ml-3 mb-4 !px-2 !py-1 text-xs">
-        <ArrowLeft className="h-3.5 w-3.5" /> Dashboard
-      </Link>
-
-      <div className="mb-6 flex items-center gap-3">
-        {FORMAT_ICONS[selectedFormat.id] ?? <BookOpen className="h-5 w-5 text-indigo-400" />}
-        <span className="text-sm font-semibold text-white">{selectedFormat.name}</span>
-        <span className="text-xs text-zinc-500">· {selectedFormat.credits} credit · {selectedFormat.pages}</span>
-      </div>
-
-      <div className="mb-8 flex items-center gap-3 text-sm">
-        <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${hasChosenIdea || !hasIdeaStep ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/40" : "bg-gradient-to-r from-indigo-500 to-violet-500 text-white"}`}>
-          {hasChosenIdea || !hasIdeaStep ? <Check className="h-3.5 w-3.5" /> : "1"}
-        </span>
-        <span className={hasChosenIdea || !hasIdeaStep ? "text-zinc-500" : "font-semibold text-white"}>
-          {hasIdeaStep ? "Generate ideas" : "Configure"}
-        </span>
-        <span className="h-px w-10 bg-white/15" />
-        <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${hasChosenIdea || !hasIdeaStep ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white" : "bg-white/5 text-zinc-500 ring-1 ring-white/10"}`}>
-          2
-        </span>
-        <span className={hasChosenIdea || !hasIdeaStep ? "font-semibold text-white" : "text-zinc-500"}>
-          Set up your book
-        </span>
-      </div>
-
-      {/* ── IDEA STEP ── */}
-      {hasIdeaStep && !showDetails && (
-        <div className="space-y-8">
-          <div className="card p-6 sm:p-8">
-            <h1 className="flex items-center gap-2 text-xl font-bold text-white">
-              <Sparkles className="h-5 w-5 text-indigo-400" /> What should we write?
-            </h1>
-            <p className="mt-1 text-sm text-zinc-500">Pick a genre, drop a few keywords or themes, and AI will pitch you three complete book concepts.</p>
-            <form onSubmit={generateIdeas} className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label">Genre</label>
-                <input list="genres" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="e.g. Science Fiction" className="input" required />
-                <datalist id="genres">
-                  {GENRES.map((g) => <option key={g} value={g} />)}
-                </datalist>
-              </div>
-              <div>
-                <label className="label">Keywords / themes</label>
-                <input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="e.g. time travel, lost colony, AI companion" className="input" required />
-              </div>
-              <div className="sm:col-span-2 grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label">AI provider</label>
-                  <select value={settings.aiProvider} onChange={(e) => { setSettings({ aiProvider: e.target.value as "openai" | "openrouter" }); setAvailableModels([]); }} className="input">
-                    <option value="openai" className="bg-zinc-900">OpenAI</option>
-                    <option value="openrouter" className="bg-zinc-900">OpenRouter (cloud)</option>
-                  </select>
-                </div>
-                {settings.aiProvider === "openrouter" ? (
-                  <div>
-                    <label className="label">OpenRouter model</label>
-                    <div className="flex gap-2">
-                      <select value={settings.openRouterModel} onChange={(e) => setSettings({ openRouterModel: e.target.value })} className="input">
-                        <option value="">Select a model…</option>
-                        {availableModels.map((m) => <option key={m} value={m} className="bg-zinc-900">{m}</option>)}
-                      </select>
-                      <button type="button" onClick={fetchModels} disabled={generating} className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white hover:bg-white/10 disabled:opacity-50" title="Fetch available models">
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 12"/><path d="M21 3v6h-6"/></svg>
-                        Fetch
-                      </button>
-                    </div>
-                    <p className="mt-1 text-[11px] text-zinc-500">Or type a model name manually (e.g. openai/gpt-4o-mini).</p>
-                    {availableModels.length === 0 && (
-                      <input value={settings.openRouterModel} onChange={(e) => setSettings({ openRouterModel: e.target.value })} placeholder="openai/gpt-4o-mini" className="input mt-2" />
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <label className="label">OpenAI model</label>
-                    <input value={settings.openAIModel} onChange={(e) => setSettings({ openAIModel: e.target.value })} placeholder="gpt-4o-mini" className="input" />
-                  </div>
-                )}
-              </div>
-              <div className="sm:col-span-2">
-                <button type="submit" disabled={generating} className="btn-primary w-full !py-3">
-                  {generating ? <Spinner className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-                  {generating ? "Brainstorming…" : "Generate 3 book ideas"}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {ideas && (
-            <div className="animate-fade-in-up space-y-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">Pick an idea to start from</h2>
-              {ideas.map((idea, i) => (
-                <div key={i} className="card p-6 transition hover:border-indigo-400/40">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-bold text-white">{idea.title}</h3>
-                      <p className="mt-1 text-sm italic text-indigo-300">{idea.hook}</p>
-                    </div>
-                    <button onClick={() => chooseIdea(idea)} className="btn-primary shrink-0 !py-2 text-xs">Choose <ArrowRight className="h-3.5 w-3.5" /></button>
-                  </div>
-                  <p className="mt-4 text-sm leading-relaxed text-zinc-400">{idea.synopsis}</p>
-                  {idea.targetAudience && (
-                    <p className="mt-3 text-xs text-zinc-500"><span className="font-semibold text-zinc-400">For:</span> {idea.targetAudience}</p>
-                  )}
-                </div>
-              ))}
-              <button onClick={() => setIdeas(null)} className="btn-ghost text-xs">↺ Regenerate ideas</button>
-            </div>
-          )}
+    <div className="studio-shell studio-create">
+      <div className="studio-create-inner">
+        <Link href="/dashboard" className="studio-back">
+          <ArrowLeft /> My projects
+        </Link>
+        <div className="studio-create-heading">
+          <span className="studio-eyebrow">A NEW BEGINNING</span>
+          <h1 className="studio-title">Make room for your next big idea.</h1>
+          <p className="studio-muted">
+            A few details now. A writing space that feels like yours next.
+          </p>
         </div>
-      )}
-
-      {/* ── CONFIG / DETAILS STEP ── */}
-      {showDetails && (
-        <div className="card animate-fade-in-up p-6 sm:p-8">
-          <h1 className="text-xl font-bold text-white">Set up your {selectedFormat.name}</h1>
-          <p className="mt-1 text-sm text-zinc-500">Everything here is editable later — this just seeds your new book.</p>
-
-          <form onSubmit={createBook} className="mt-6 space-y-5">
-            <div>
-              <label className="label">Title</label>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} className="input text-base font-semibold" required />
-            </div>
-            <div>
-              <label className="label">Description / synopsis</label>
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} className="input resize-y" />
-            </div>
-
-            {formatId === "guide" && (
-              <>
-                <div>
-                  <label className="label">Topic</label>
-                  <input value={guideTopic} onChange={(e) => setGuideTopic(e.target.value)} className="input" placeholder="e.g. Watercolor Painting" required />
-                </div>
-                <div>
-                  <label className="label">Target audience</label>
-                  <input value={guideAudience} onChange={(e) => setGuideAudience(e.target.value)} className="input" placeholder="e.g. Art beginners" />
-                </div>
-                <div>
-                  <label className="label">Learning objective</label>
-                  <input value={guideLearningObjective} onChange={(e) => setGuideLearningObjective(e.target.value)} className="input" placeholder="e.g. Master basic watercolor techniques" required />
-                </div>
-                <div>
-                  <label className="label">Difficulty</label>
-                  <select value={guideDifficulty} onChange={(e) => setGuideDifficulty(e.target.value)} className="input">
-                    <option value="Beginner" className="bg-zinc-900">Beginner</option>
-                    <option value="Intermediate" className="bg-zinc-900">Intermediate</option>
-                    <option value="Advanced" className="bg-zinc-900">Advanced</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Sections</label>
-                  <textarea value={guideSections} onChange={(e) => setGuideSections(e.target.value)} rows={3} className="input resize-y" placeholder="e.g. Materials, Basic Strokes, Landscape, Portrait" />
-                </div>
-              </>
-            )}
-
-            {formatId === "workbook" && (
-              <>
-                <div>
-                  <label className="label">Topic</label>
-                  <input value={workbookTopic} onChange={(e) => setWorkbookTopic(e.target.value)} className="input" placeholder="e.g. Math Practice" required />
-                </div>
-                <div>
-                  <label className="label">Learning objective</label>
-                  <input value={workbookLearningObjective} onChange={(e) => setWorkbookLearningObjective(e.target.value)} className="input" placeholder="e.g. Practice multiplication facts" required />
-                </div>
-                <div>
-                  <label className="label">Number of exercises</label>
-                  <input type="number" min="1" value={workbookExercises} onChange={(e) => setWorkbookExercises(e.target.value)} className="input" required />
-                </div>
-                <div>
-                  <label className="label">Difficulty</label>
-                  <select value={workbookDifficulty} onChange={(e) => setWorkbookDifficulty(e.target.value)} className="input">
-                    <option value="Beginner" className="bg-zinc-900">Beginner</option>
-                    <option value="Intermediate" className="bg-zinc-900">Intermediate</option>
-                    <option value="Advanced" className="bg-zinc-900">Advanced</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Activity style</label>
-                  <select value={workbookActivityStyle} onChange={(e) => setWorkbookActivityStyle(e.target.value)} className="input">
-                    <option value="Written" className="bg-zinc-900">Written</option>
-                    <option value="Interactive" className="bg-zinc-900">Interactive</option>
-                    <option value="Matching" className="bg-zinc-900">Matching</option>
-                    <option value="Fill-in-the-blank" className="bg-zinc-900">Fill-in-the-blank</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Answer key</label>
-                  <textarea value={workbookAnswerKey} onChange={(e) => setWorkbookAnswerKey(e.target.value)} rows={3} className="input resize-y" placeholder="e.g. 1) A 2) B 3) C" />
-                </div>
-              </>
-            )}
-
-            {formatId === "audiobook" && (
-              <>
-                <div>
-                  <label className="label">Select existing book</label>
-                  {userBooks.length > 0 ? (
-                    <select value={audioExistingBookId} onChange={(e) => setAudioExistingBookId(e.target.value)} className="input" required>
-                      <option value="" className="bg-zinc-900">Choose a book…</option>
-                      {userBooks.map((b) => <option key={b.id} value={b.id} className="bg-zinc-900">{b.title}</option>)}
-                    </select>
-                  ) : (
-                    <input value={audioExistingBookId} onChange={(e) => setAudioExistingBookId(e.target.value)} className="input" placeholder="Enter book ID or title" />
-                  )}
-                </div>
-                <div>
-                  <label className="label">Voice</label>
-                  <select value={audioVoice} onChange={(e) => setAudioVoice(e.target.value)} className="input">
-                    <option value="Male - Professional" className="bg-zinc-900">Male - Professional</option>
-                    <option value="Male - Warm" className="bg-zinc-900">Male - Warm</option>
-                    <option value="Female - Professional" className="bg-zinc-900">Female - Professional</option>
-                    <option value="Female - Warm" className="bg-zinc-900">Female - Warm</option>
-                    <option value="Narrator - Dramatic" className="bg-zinc-900">Narrator - Dramatic</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Narration style</label>
-                  <select value={audioNarrationStyle} onChange={(e) => setAudioNarrationStyle(e.target.value)} className="input">
-                    <option value="Narrative" className="bg-zinc-900">Narrative</option>
-                    <option value="Conversational" className="bg-zinc-900">Conversational</option>
-                    <option value="Dramatic" className="bg-zinc-900">Dramatic</option>
-                    <option value="Educational" className="bg-zinc-900">Educational</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Chapter selection</label>
-                  <input value={audioChapters} onChange={(e) => setAudioChapters(e.target.value)} className="input" placeholder="e.g. All chapters, or Chapters 1-5" />
-                </div>
-              </>
-            )}
-
-            {formatId === "ebook" && (
-              <div className="rounded-xl border border-indigo-400/20 bg-indigo-500/5 p-4 text-xs leading-relaxed text-zinc-400">
-                <span className="font-semibold text-indigo-300">E-Book format:</span> Digital-optimized content designed for e-readers and tablets.
-              </div>
-            )}
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <label className="label">Language</label>
-                <select value={language} onChange={(e) => setLanguage(e.target.value)} className="input">
-                  {LANGUAGES.map((l) => <option key={l} value={l} className="bg-zinc-900">{l}</option>)}
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="label">{formatId === "ebook" || formatId === "audiobook" ? "Digital price (USD)" : "Print price (USD)"}</label>
-                <input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className="input" />
-              </div>
-            </div>
-
-            {selectedIdea && (
-              <div className="rounded-xl border border-indigo-400/20 bg-indigo-500/5 p-4 text-xs leading-relaxed text-zinc-400">
-                <span className="font-semibold text-indigo-300">Based on:</span>{" "}
-                &ldquo;{selectedIdea.title}&rdquo; — {selectedIdea.hook}
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              {hasIdeaStep && (
-                <button type="button" onClick={() => { setSelectedIdea(null); setIdeas(null); }} className="btn-secondary">
-                  <ArrowLeft className="h-4 w-4" /> Back to ideas
-                </button>
-              )}
-              <button type="submit" disabled={creating} className="btn-primary flex-1">
-                {creating ? <Spinner className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-                {creating ? "Creating…" : formatId === "audiobook" ? "Generate Audiobook" : "Create book & open editor"}
+        <nav className="studio-steps" aria-label="Project setup">
+          {["Choose a format", "Shape your idea", "Plan your chapters"].map(
+            (label, i) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  if (i < 2 || title.trim()) {
+                    setStep(i + 1);
+                    setError("");
+                  }
+                }}
+                aria-current={step === i + 1 ? "step" : undefined}
+              >
+                <span className={step >= i + 1 ? "active" : ""}>
+                  {step > i + 1 ? <Check /> : `0${i + 1}`}
+                </span>
+                {label}
+              </button>
+            ),
+          )}
+        </nav>
+        {error && (
+          <div role="alert" className="studio-error">
+            {error}
+          </div>
+        )}
+        {step === 1 ? (
+          <>
+            <FormatGrid selected={formatId} onSelect={selectFormat} />
+            <div className="studio-create-footer">
+              <p>
+                Page counts are targets. You can adjust yours before you begin.
+              </p>
+              <button
+                className="studio-button primary"
+                onClick={() => setStep(2)}
+              >
+                Continue with {format.name}
+                <ArrowRight />
               </button>
             </div>
+          </>
+        ) : (
+          <form onSubmit={create} className="studio-setup-layout">
+            <div className="studio-panel">
+              {step === 2 ? (
+                <>
+                  <div className="studio-panel-heading">
+                    <span className="studio-eyebrow">THE CREATIVE BRIEF</span>
+                    <h2>Tell us about your {format.name.toLowerCase()}.</h2>
+                    <p>
+                      Start with what you know. You can refine the details
+                      later.
+                    </p>
+                  </div>
+                  <label className="studio-label">
+                    Working title <span>Required</span>
+                    <input
+                      className="studio-input"
+                      required
+                      maxLength={200}
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="The idea you can’t stop thinking about"
+                    />
+                  </label>
+                  <label className="studio-label">
+                    What is it about?
+                    <textarea
+                      className="studio-input"
+                      rows={3}
+                      maxLength={5000}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="A short synopsis, a story premise, or the problem you want to solve…"
+                    />
+                  </label>
+                  <div className="studio-field-pair">
+                    <label className="studio-label">
+                      Who is it for?
+                      <input
+                        className="studio-input"
+                        maxLength={1000}
+                        value={audience}
+                        onChange={(e) => setAudience(e.target.value)}
+                        placeholder="e.g. First-time entrepreneurs"
+                      />
+                    </label>
+                    <label className="studio-label">
+                      Topic or genre
+                      <input
+                        className="studio-input"
+                        maxLength={100}
+                        value={genre}
+                        onChange={(e) => setGenre(e.target.value)}
+                        placeholder="e.g. Business, fantasy, wellness"
+                      />
+                    </label>
+                  </div>
+                  <label className="studio-label">
+                    {formatId === "workbook"
+                      ? "Learning objective"
+                      : formatId === "guide"
+                        ? "What will readers learn to do?"
+                        : "What should readers take away?"}
+                    <textarea
+                      className="studio-input"
+                      rows={2}
+                      maxLength={4000}
+                      value={goal}
+                      onChange={(e) => setGoal(e.target.value)}
+                      placeholder="The change, feeling, or skill you want to leave them with"
+                    />
+                  </label>
+                  <div className="studio-field-pair">
+                    <label className="studio-label">
+                      Language
+                      <select
+                        className="studio-input"
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                      >
+                        {[
+                          "English",
+                          "Hindi",
+                          "Spanish",
+                          "French",
+                          "German",
+                          "Portuguese",
+                          "Chinese",
+                          "Japanese",
+                        ].map((s) => (
+                          <option key={s}>{s}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="studio-label">
+                      Writing tone
+                      <select
+                        className="studio-input"
+                        value={tone}
+                        onChange={(e) => setTone(e.target.value)}
+                      >
+                        {[
+                          "Engaging",
+                          "Professional",
+                          "Conversational",
+                          "Inspirational",
+                          "Academic",
+                          "Playful",
+                        ].map((s) => (
+                          <option key={s}>{s}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  {formatId === "audiobook" && (
+                    <label className="studio-label">
+                      Start from an existing manuscript
+                      <select
+                        className="studio-input"
+                        value={sourceBookId}
+                        onChange={(e) => {
+                          setSourceBookId(e.target.value);
+                          const source = books.find(
+                            (b) => b.id === e.target.value,
+                          );
+                          if (source && !title)
+                            setTitle(`${source.title} — Audiobook`);
+                        }}
+                      >
+                        <option value="">Write a new narration script</option>
+                        {books.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.title}
+                          </option>
+                        ))}
+                      </select>
+                      <small>
+                        Your original stays intact. Its saved chapters are
+                        copied into a new project.
+                      </small>
+                    </label>
+                  )}
+                  <div className="studio-ai-inspiration">
+                    <Sparkles />
+                    <div>
+                      <strong>Need a little inspiration?</strong>
+                      <p>
+                        {aiAvailable
+                          ? "Use your brief to explore three title and synopsis ideas."
+                          : "Write your own brief to get started. AI inspiration is available when a provider is connected."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="studio-button secondary"
+                      disabled={!aiAvailable || thinking || !goal.trim()}
+                      onClick={brainstorm}
+                    >
+                      {thinking ? <Spinner /> : <Sparkles />}Explore ideas
+                    </button>
+                  </div>
+                  {ideas.map((idea) => (
+                    <button
+                      type="button"
+                      key={idea.title}
+                      className="studio-idea"
+                      onClick={() => {
+                        setTitle(idea.title);
+                        setDescription(idea.synopsis);
+                        setAudience(idea.targetAudience);
+                      }}
+                    >
+                      <strong>{idea.title}</strong>
+                      <p>{idea.synopsis}</p>
+                      <span>
+                        Use this idea <ArrowRight />
+                      </span>
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <div className="studio-panel-heading">
+                    <span className="studio-eyebrow">
+                      THE TABLE OF CONTENTS
+                    </span>
+                    <h2>A little structure. Endless possibility.</h2>
+                    <p>
+                      {sourceBookId
+                        ? "We’ll copy the saved chapters from your selected manuscript."
+                        : `We've suggested a structure for your ${format.name.toLowerCase()}. Rename, add, or remove sections to make it yours.`}
+                    </p>
+                  </div>
+                  {!sourceBookId && (
+                    <label className="studio-label">
+                      Section titles <span>One per line · up to 60</span>
+                      <textarea
+                        className="studio-input studio-outline-input"
+                        rows={12}
+                        value={outline}
+                        onChange={(e) => setOutline(e.target.value)}
+                        required
+                      />
+                    </label>
+                  )}
+                  <label className="studio-label">
+                    {formatId === "audiobook"
+                      ? "Script page target"
+                      : "Page target"}
+                    <input
+                      className="studio-input"
+                      type="number"
+                      min={1}
+                      max={1000}
+                      required
+                      value={targetPages}
+                      onChange={(e) => setTargetPages(Number(e.target.value))}
+                    />
+                    <small>
+                      Approximately {(targetPages * 250).toLocaleString()} words
+                      at 250 words per page. Actual pagination varies.
+                    </small>
+                  </label>
+                  <div className="studio-note">
+                    <Check />
+                    <p>
+                      Your project starts with empty sections and planning
+                      notes. Write yourself or generate a draft when AI is
+                      connected.
+                    </p>
+                  </div>
+                </>
+              )}
+              <div className="studio-form-actions">
+                <button
+                  type="button"
+                  className="studio-button secondary"
+                  onClick={() => setStep(step - 1)}
+                >
+                  <ArrowLeft />
+                  Back
+                </button>
+                  {step === 2 ? (
+                    <button
+                      key="plan-structure"
+                    type="button"
+                    className="studio-button primary"
+                    onClick={() => {
+                      if (!title.trim()) {
+                        setError("Give your project a working title.");
+                        return;
+                      }
+                      setError("");
+                      setStep(3);
+                    }}
+                  >
+                    Plan the structure <ArrowRight />
+                  </button>
+                  ) : (
+                    <button
+                      key="create-project"
+                    type="submit"
+                    disabled={creating}
+                    className="studio-button primary"
+                  >
+                    {creating ? <Spinner /> : <ArrowRight />}
+                    {creating
+                      ? "Creating your studio…"
+                      : "Create my writing space"}
+                  </button>
+                )}
+              </div>
+            </div>
+            <aside className="studio-project-summary">
+              <span className={`studio-format-icon ${format.color}`}>
+                <FormatIcon id={formatId} className="h-7 w-7" />
+              </span>
+              <span className="studio-eyebrow">YOUR NEXT PROJECT</span>
+              <h2>{title || `Your ${format.name.toLowerCase()}`}</h2>
+              <p>{format.outcome}</p>
+              <dl>
+                <div>
+                  <dt>Format</dt>
+                  <dd>{format.name}</dd>
+                </div>
+                <div>
+                  <dt>Writing target</dt>
+                  <dd>{targetPages} pages</dd>
+                </div>
+                <div>
+                  <dt>Language</dt>
+                  <dd>{language}</dd>
+                </div>
+                <div>
+                  <dt>Voice</dt>
+                  <dd>{tone}</dd>
+                </div>
+              </dl>
+              <div className="studio-summary-tip">
+                <Sparkles />
+                <p>{format.instruction.split(".")[0]}.</p>
+              </div>
+            </aside>
           </form>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
-
 export default function NewBookPage() {
   return (
-    <Suspense fallback={<div className="flex h-[60vh] items-center justify-center"><Spinner className="h-8 w-8 text-indigo-400 animate-spin" /></div>}>
-      <NewBookPageContent />
+    <Suspense
+      fallback={
+        <div className="studio-shell studio-loading">
+          <Spinner />
+          Loading your writing space…
+        </div>
+      }
+    >
+      <NewProject />
     </Suspense>
   );
 }

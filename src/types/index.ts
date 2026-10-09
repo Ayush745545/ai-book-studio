@@ -25,6 +25,7 @@ export interface SerializedChapter {
   order: number;
   type: ChapterType;
   wordCount: number;
+  notes: string;
   bookId: string;
   createdAt: string;
   updatedAt: string;
@@ -61,6 +62,11 @@ export interface SerializedBook {
   status: BookStatus;
   genre: string | null;
   language: string;
+  format: string;
+  targetPages: number;
+  audience: string;
+  writingGoal: string;
+  tone: string;
   isPublished: boolean;
   price: number;
   digitalPrice: number;

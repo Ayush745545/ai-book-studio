@@ -15,7 +15,7 @@ export default async function BookEditorPage({ params }: { params: { id: string 
 
   const book = await prisma.book.findUnique({
     where: { id: params.id },
-    include: { chapters: { orderBy: { order: "asc" } }, coverImages: { orderBy: { createdAt: "desc" } } },
+    include: { author: { select: { name: true, email: true } }, chapters: { orderBy: { order: "asc" } }, coverImages: { orderBy: { createdAt: "desc" } }, printSettings: true, editions: { include: { chapters: { orderBy: { order: "asc" } } } } },
   });
 
   if (!book) notFound();

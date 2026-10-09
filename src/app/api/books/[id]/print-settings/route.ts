@@ -8,11 +8,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const patchSchema = z.object({
-  pageSize: z.string().optional(),
-  margin: z.string().optional(),
-  font: z.string().optional(),
-  fontSize: z.number().optional(),
-  lineSpacing: z.number().optional(),
+  pageSize: z.enum(["5x8", "6x9", "8.5x11", "a4"]).optional(),
+  margin: z.string().regex(/^(0\.[5-9]|1(?:\.0)?)in$/, "Margins must be between 0.5in and 1in").optional(),
+  font: z.enum(["serif", "sans", "mono"]).optional(),
+  fontSize: z.number().int().min(8).max(24).optional(),
+  lineSpacing: z.number().min(1).max(3).optional(),
 });
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
@@ -51,6 +51,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       update: body,
       create: {
         bookId: params.id,
+        pageSize: book.format === "workbook" ? "a4" : "6x9",
+        font: book.format === "workbook" ? "sans" : "serif",
         ...body,
       },
     });

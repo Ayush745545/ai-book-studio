@@ -1,3 +1,4 @@
+import { writingCredentials } from "@/lib/ai-credentials";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/session";
@@ -12,10 +13,11 @@ export const maxDuration = 120;
 const schema = z.object({
   bookTitle: z.string().min(1).max(200),
   chapterTitle: z.string().min(1).max(200),
-  outline: z.string().max(4000).default(""),
+  outline: z.string().max(12000).default(""),
   tone: z.string().max(50).default("engaging"),
   provider: z.enum(["openai", "openrouter"]).optional(),
   model: z.string().min(1).max(100).optional(),
+  targetWords: z.number().int().min(100).max(3000).optional(),
 });
 
 /** POST /api/ai/chapter — generate a full chapter (~1200 words). */
@@ -30,7 +32,7 @@ export async function POST(req: Request) {
       body.chapterTitle,
       body.outline,
       body.tone,
-      { provider: body.provider, model: body.model }
+      { ...(await writingCredentials(user.id, body.provider)), model: body.model, targetWords: body.targetWords }
     );
     return NextResponse.json({ content, wordCount: countWords(content) });
   } catch (err) {

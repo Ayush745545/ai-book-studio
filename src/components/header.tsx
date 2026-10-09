@@ -1,95 +1,87 @@
 "use client";
-
-import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { LayoutGrid, LogOut, Settings, Star, Store, Moon, Sun } from "@/components/icons";
-import { Spinner } from "@/components/icons";
-import { useTheme } from "@/components/theme-provider";
-
+import { useState } from "react";
+import { BookOpen, ArrowRight, LogOut, Spinner } from "@/components/icons";
 export function Header() {
-  const { data: session, status } = useSession();
-  const pathname = usePathname();
-  const { resolvedTheme, setTheme } = useTheme();
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const signingOutRef = React.useRef(false);
-
-  const handleSignOut = async () => {
-    if (signingOutRef.current) {
-      return;
-    }
-
-    signingOutRef.current = true;
-    setIsSigningOut(true);
-
-    try {
-      await signOut({ callbackUrl: "/" });
-    } finally {
-      signingOutRef.current = false;
-      setIsSigningOut(false);
-    }
-  };
-
-  const navLink = (href: string, label: string, icon: React.ReactNode) => (
-    <Link
-      href={href}
-      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-        pathname === href
-          ? "bg-white/10 text-white"
-          : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
-      }`}
-    >
-      {icon}
-      <span className="hidden sm:inline">{label}</span>
-    </Link>
-  );
-
+  const { data: session, status } = useSession(),
+    pathname = usePathname(),
+    [leaving, setLeaving] = useState(false);
+  const editor = /^\/books\/(?!new)[^/]+$/.test(pathname);
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <img src="/logo.png" alt="AI Book Studio" className="h-16 w-16 object-contain" />
-          <span className="text-sm font-bold tracking-tight text-white sm:text-base">
-            AI Book <span className="bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">Studio</span>
+    <header className="studio-site-header">
+      <div>
+        <Link className="studio-brand" href="/">
+          <span>
+            <BookOpen className="h-5 w-5" />
           </span>
+          Book<span className="studio-brand-light">Studio</span>
+          <small>AI</small>
         </Link>
-
-        <nav className="flex items-center gap-1">
-          {navLink("/store", "Store", <Store className="h-4 w-4" />)}
-          {navLink("/pools", "Pools", <Star className="h-4 w-4" />)}
-          {session?.user && navLink("/dashboard", "Dashboard", <LayoutGrid className="h-4 w-4" />)}
-          {session?.user && navLink("/settings", "Settings", <Settings className="h-4 w-4" />)}
-
-          {status === "loading" ? (
-            <span className="px-3 text-zinc-500"><Spinner className="h-4 w-4" /></span>
-          ) : session?.user ? (
-            <div className="ml-2 flex items-center gap-2">
-              <span className="hidden max-w-[140px] truncate text-sm text-zinc-400 md:inline">
-                {session.user.name || session.user.email}
-              </span>
-              <button
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-                className="btn-ghost !px-2.5 !py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
-                title={isSigningOut ? "Signing out…" : "Sign out"}
+        <nav aria-label="Main navigation">
+          {!editor && (
+            <>
+              <Link className={pathname === "/" ? "active" : ""} href="/">
+                Create
+              </Link>
+              <Link
+                className={pathname === "/store" ? "active" : ""}
+                href="/store"
               >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <Link href="/login" className="btn-primary ml-2 !px-3.5 !py-1.5 text-xs">
-              Sign in
+                Bookstore
+              </Link>
+              <Link
+                className={pathname === "/pools" ? "active" : ""}
+                href="/pools"
+              >
+                Community
+              </Link>
+            </>
+          )}
+          {session?.user && (
+            <Link
+              className={pathname.startsWith("/dashboard") ? "active" : ""}
+              href="/dashboard"
+            >
+              My projects
             </Link>
           )}
-          <button
-            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-            className="ml-2 flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/5 hover:text-zinc-200 transition"
-            title={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
         </nav>
+        <div className="studio-header-account">
+          {status === "loading" ? (
+            <Spinner />
+          ) : session?.user ? (
+            <>
+              <Link
+                href="/settings"
+                className="studio-account-avatar"
+                aria-label="Account settings"
+              >
+                {(session.user.name || session.user.email || "A")
+                  .slice(0, 1)
+                  .toUpperCase()}
+              </Link>
+              <button
+                className="studio-icon-button"
+                disabled={leaving}
+                title="Sign out"
+                aria-label="Sign out"
+                onClick={async () => {
+                  if (leaving) return;
+                  setLeaving(true);
+                  await signOut({ callbackUrl: "/" });
+                }}
+              >
+                <LogOut />
+              </button>
+            </>
+          ) : (
+            <Link className="studio-header-login" href="/login">
+              Your writing space <ArrowRight />
+            </Link>
+          )}
+        </div>
       </div>
     </header>
   );

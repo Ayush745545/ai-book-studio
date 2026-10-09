@@ -203,3 +203,17 @@ Models: `Contest` (system week when `title` is null, user pool when set,
   paper and binding options.
 - Use `prisma migrate deploy` in CI instead of `db push`.
 - Rate-limit the AI routes (e.g. Upstash) before exposing publicly.
+
+## Format-aware writing studio
+
+Choose Book (120-page target), E-Book (50), Guide (30), Workbook (15, adjustable to 10–20), or Audiobook. The creation wizard saves the format, audience, brief, tone, language, page target, and an editable outline. Outlines create empty sections with planning notes; page counts are targets at approximately 250 words per page, not guaranteed generated lengths. The `1 credit` labels are presentation only; this repository does not implement credit balances or deductions.
+
+The editor supports autosave, save-before-switch, local recovery after a failed save, section types, reordering, manuscript undo/redo, notes, and saved content versions. Preview the saved manuscript, upload cover art, and export PDF, EPUB 3, or plain text. Workbooks default to A4; settings in Print & editions change PDF trim size, font, margins, and spacing. EPUB exports contain text and chapter navigation; cover images are included in PDF for uploaded PNG/JPEG art.
+
+OpenRouter is the default writing provider. Sign in and open `/settings` to verify and connect a personal inference key. Keys are encrypted in the database with AES-256-GCM using `NEXTAUTH_SECRET`; keep this secret stable to retain access to stored connections. Alternatively, configure `OPENROUTER_API_KEY` on the server. Never put API keys in `NEXT_PUBLIC_` variables. Select a valid model ID in AI preferences. OpenRouter powers ideas, chapter drafting, grammar, selected-text editing, chat, and translation. Generated drafts require review before insertion. Provider usage charges apply; no live generation can run without a valid key.
+
+Audiobooks can copy saved sections from an owned manuscript. The Listen tab previews speech using device voices without a key. MP3 export generates one track at a time using OpenAI `tts-1`, with up to 24,000 characters per track. It requires `OPENAI_API_KEY`; OpenRouter writing credentials do not enable this audio route.
+
+For a fresh local database, set `DATABASE_URL` in `.env.local` and run `DATABASE_URL=your-connection-string npx prisma db push`. Prisma CLI does not automatically load `.env.local`. Use `npm run dev -- --port 3001` for the configured local port. Next loads `.env.local` automatically.
+
+Verification: install the Chromium test browser with `npx playwright install chromium`, start the app, then run `npm run test:studio` (override `BASE_URL` if needed). The smoke check creates temporary author accounts, exercises all five creation and export flows, simulates delayed and failed saves, checks mobile tools, and removes its test projects. `node scripts/ai-connection-tests.mjs` verifies encryption and account isolation using synthetic keys, without contacting a provider. Live provider generation remains unverified until a valid key is connected.

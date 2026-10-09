@@ -1,3 +1,4 @@
+import { writingCredentials } from "@/lib/ai-credentials";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/session";
@@ -10,7 +11,7 @@ export const maxDuration = 60;
 
 const schema = z.object({
   genre: z.string().min(1, "Genre is required").max(100),
-  keywords: z.string().min(1, "Keywords are required").max(500),
+  keywords: z.string().min(1, "Keywords are required").max(6000),
   provider: z.enum(["openai", "openrouter"]).optional(),
   model: z.string().min(1).max(100).optional(),
 });
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
 
     const body = schema.parse(await req.json());
     const result = await generateBookIdea(body.genre, body.keywords, {
-      provider: body.provider,
+      ...(await writingCredentials(user.id, body.provider)),
       model: body.model,
     });
     return NextResponse.json(result);

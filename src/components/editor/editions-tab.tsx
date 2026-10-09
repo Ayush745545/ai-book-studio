@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SerializedBook, SerializedPrintSettings } from "@/types";
 import { apiFetch } from "@/lib/client";
+import { useUserSettings } from "@/components/user-settings-context";
 import { useToast } from "@/components/ui/toast";
 import { formatPrice, unitPriceFor } from "@/lib/utils";
 import { BookCover } from "@/components/book-card";
@@ -18,6 +19,7 @@ interface EditionsTabProps {
 }
 
 const PAGE_SIZES = [
+  { id: "a4", label: "Workbook (A4)" },
   { id: "5x8", label: "Trade (5x8 in)" },
   { id: "6x9", label: "Standard (6x9 in)" },
   { id: "8.5x11", label: "Letter (8.5x11 in)" },
@@ -34,6 +36,7 @@ interface Addr {
 
 export function EditionsTab({ book, refreshBook, onPublish, publishing, isPublished }: EditionsTabProps) {
   const router = useRouter();
+  const { settings } = useUserSettings();
   const toast = useToast();
   const [translating, setTranslating] = useState(false);
   const [lang, setLang] = useState("Spanish");
@@ -49,9 +52,9 @@ export function EditionsTab({ book, refreshBook, onPublish, publishing, isPublis
   });
 
   const [printSettings, setPrintSettings] = useState<Partial<SerializedPrintSettings>>(book.printSettings || {
-    pageSize: "6x9",
+    pageSize: book.format === "workbook" ? "a4" : "6x9",
     margin: "0.5in",
-    font: "serif",
+    font: book.format === "workbook" ? "sans" : "serif",
     fontSize: 11,
     lineSpacing: 1.5,
   });
@@ -90,7 +93,7 @@ export function EditionsTab({ book, refreshBook, onPublish, publishing, isPublis
     try {
       await apiFetch(`/api/books/${book.id}/editions`, {
         method: "POST",
-        body: JSON.stringify({ language: lang }),
+        body: JSON.stringify({ language: lang, provider: settings.aiProvider, model: settings.aiProvider === "openrouter" ? settings.openRouterModel || undefined : settings.openAIModel }),
       });
       toast(`${lang} edition created successfully!`, "success");
       await refreshBook();
@@ -201,8 +204,9 @@ export function EditionsTab({ book, refreshBook, onPublish, publishing, isPublis
             <div className="grid sm:grid-cols-2 gap-8">
               <div className="space-y-5">
                 <div>
-                  <label className="label">Book Size</label>
+                  <label className="label" htmlFor="print-pageSize">Book Size</label>
                   <select
+                    id="print-pageSize"
                     value={printSettings.pageSize}
                     onChange={(e) => updateSettings("pageSize", e.target.value)}
                     className="input"
@@ -213,23 +217,26 @@ export function EditionsTab({ book, refreshBook, onPublish, publishing, isPublis
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="label">Base Font</label>
+                    <label className="label" htmlFor="print-font">Base Font</label>
                     <select
-                      value={printSettings.font}
+                      id="print-font"
+                    value={printSettings.font}
                       onChange={(e) => updateSettings("font", e.target.value)}
                       className="input"
                     >
-                      <option value="serif">Serif (Georgia)</option>
+                      <option value="serif">Serif (Times)</option>
                       <option value="sans">Sans-serif</option>
                       <option value="mono">Monospace</option>
                     </select>
                   </div>
                   <div>
-                    <label className="label">Font Size (pt)</label>
+                    <label className="label" htmlFor="print-fontSize">Font Size (pt)</label>
                     <input
                       type="number"
-                      value={printSettings.fontSize}
-                      onChange={(e) => updateSettings("fontSize", Number(e.target.value))}
+                      id="print-fontSize"
+                    value={printSettings.fontSize}
+                      onChange={(e) => setPrintSettings(prev => ({ ...prev, fontSize: Number(e.target.value) }))}
+                      onBlur={(e) => void updateSettings("fontSize", Number(e.target.value))}
                       className="input"
                     />
                   </div>
@@ -237,21 +244,25 @@ export function EditionsTab({ book, refreshBook, onPublish, publishing, isPublis
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="label">Line Spacing</label>
+                    <label className="label" htmlFor="print-lineSpacing">Line Spacing</label>
                     <input
                       type="number"
                       step="0.1"
-                      value={printSettings.lineSpacing}
-                      onChange={(e) => updateSettings("lineSpacing", Number(e.target.value))}
+                      id="print-lineSpacing"
+                    value={printSettings.lineSpacing}
+                      onChange={(e) => setPrintSettings(prev => ({ ...prev, lineSpacing: Number(e.target.value) }))}
+                      onBlur={(e) => void updateSettings("lineSpacing", Number(e.target.value))}
                       className="input"
                     />
                   </div>
                   <div>
-                    <label className="label">Margins</label>
+                    <label className="label" htmlFor="print-margin">Margins</label>
                     <input
                       type="text"
-                      value={printSettings.margin}
-                      onChange={(e) => updateSettings("margin", e.target.value)}
+                      id="print-margin"
+                    value={printSettings.margin}
+                      onChange={(e) => setPrintSettings(prev => ({ ...prev, margin: e.target.value }))}
+                      onBlur={(e) => void updateSettings("margin", e.target.value)}
                       className="input"
                     />
                   </div>

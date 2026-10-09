@@ -10,10 +10,10 @@ function getBaseUrl(): string {
   return process.env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL;
 }
 
-function headers(): Record<string, string> {
+function headers(apiKey?: string): Record<string, string> {
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${getApiKey()}`,
+    Authorization: `Bearer ${apiKey || getApiKey()}`,
   };
 }
 
@@ -27,12 +27,13 @@ async function chatCompletions(
   messages: { role: string; content: string }[],
   temperature: number,
   maxTokens: number,
-  stream = false
+  stream = false,
+  apiKey?: string
 ): Promise<{ text: string; tokens: number }> {
   const baseUrl = getBaseUrl();
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
-    headers: headers(),
+    headers: headers(apiKey),
     body: JSON.stringify({
       model,
       messages,
@@ -103,11 +104,11 @@ function parseBookIdeas(text: string): BookIdea[] {
   return ideas;
 }
 
-export async function listOpenRouterModels(): Promise<string[]> {
+export async function listOpenRouterModels(apiKey?: string): Promise<string[]> {
   try {
     const baseUrl = getBaseUrl();
     const res = await fetch(`${baseUrl}/models`, {
-      headers: headers(),
+      headers: headers(apiKey),
     });
     if (!res.ok) return [];
     const data = (await res.json()) as { data?: { id?: string }[] };
@@ -120,7 +121,8 @@ export async function listOpenRouterModels(): Promise<string[]> {
 export async function generateBookIdeaWithOpenRouter(
   genre: string,
   keywords: string,
-  model?: string
+  model?: string,
+  apiKey?: string
 ): Promise<{ ideas: BookIdea[] }> {
   const m = resolveModel(model);
   const { text } = await chatCompletions(
@@ -137,7 +139,9 @@ export async function generateBookIdeaWithOpenRouter(
       },
     ],
     0.95,
-    1600
+    1600,
+    false,
+    apiKey
   );
   return { ideas: parseBookIdeas(text) };
 }
@@ -147,7 +151,9 @@ export async function generateChapterWithOpenRouter(
   chapterTitle: string,
   outline: string,
   tone: string,
-  model?: string
+  model?: string,
+  targetWords = 1200,
+  apiKey?: string
 ): Promise<string> {
   const m = resolveModel(model);
   const { text } = await chatCompletions(
@@ -155,15 +161,17 @@ export async function generateChapterWithOpenRouter(
     [
       {
         role: "system",
-        content: `You are a professional ghostwriter. You write vivid, well-paced prose of about 1200 words per chapter in a ${tone || "engaging"} tone. Output ONLY the chapter prose — no meta commentary, no markdown headers, no author notes. Separate paragraphs with a single blank line.`,
+        content: `You are a professional ghostwriter. You write vivid, well-paced prose of about ${targetWords} words for the requested format in a ${tone || "engaging"} tone. Output ONLY the chapter prose — no meta commentary, no markdown headers, no author notes. Separate paragraphs with a single blank line.`,
       },
       {
         role: "user",
-        content: `Book title: ${bookTitle}\nChapter title: ${chapterTitle}\nOutline / notes: ${outline || "None provided — invent a fitting arc for this chapter."}\n\nWrite the full chapter now (~1200 words).`,
+        content: `Book title: ${bookTitle}\nChapter title: ${chapterTitle}\nOutline / notes: ${outline || "None provided — invent a fitting arc for this chapter."}\n\nWrite the full chapter now (~${targetWords} words).`,
       },
     ],
     0.85,
-    3500
+    Math.min(8000, Math.ceil(targetWords * 2.5)),
+    false,
+    apiKey
   );
   if (!text) throw new Error("OpenRouter returned an empty chapter. Try again.");
   return text;
@@ -171,7 +179,8 @@ export async function generateChapterWithOpenRouter(
 
 export async function grammarCheckWithOpenRouter(
   text: string,
-  model?: string
+  model?: string,
+  apiKey?: string
 ): Promise<{ corrected: string; changes: GrammarChange[] }> {
   const m = resolveModel(model);
   const { text: result } = await chatCompletions(
@@ -188,7 +197,9 @@ export async function grammarCheckWithOpenRouter(
       },
     ],
     0.2,
-    4000
+    4000,
+    false,
+    apiKey
   );
 
   const parsed = parseJson(result, "The AI returned invalid JSON for the grammar check. Try again.") as Record<

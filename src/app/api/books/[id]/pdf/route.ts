@@ -2,147 +2,208 @@ import PDFDocument from "pdfkit";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
 import { slugify } from "@/lib/utils";
+import { getFormatById } from "@/lib/book-formats";
 import { apiError, forbidden, notFound, unauthorized } from "@/lib/api";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-// 6x9 inch trade paperback page, in points (1in = 72pt)
-const PAGE_SIZE: [number, number] = [432, 648];
-const MARGIN = 54;
-
-type Params = { params: { id: string } };
-
-/**
- * GET /api/books/[id]/pdf — stream a print-ready PDF (6x9 pages):
- * title page + one chapter per section.
- */
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } },
+) {
   try {
     const user = await getSessionUser();
     if (!user) return unauthorized();
-
     const book = await prisma.book.findUnique({
       where: { id: params.id },
       include: {
         author: { select: { name: true, email: true } },
         chapters: { orderBy: { order: "asc" } },
+        coverImages: true,
+        printSettings: true,
       },
     });
     if (!book) return notFound("Book");
-    
-    const digitalPrice = book.digitalPrice ?? 0;
-    let hasAccess = digitalPrice === 0 || book.authorId === user.id || user.role === "ADMIN";
-
-    if (!hasAccess && book.isPublished) {
-      const paidOrder = await prisma.order.findFirst({
-        where: { userId: user.id, bookId: book.id, status: "PAID" },
-      });
-      if (paidOrder) hasAccess = true;
-    }
-
-    if (!hasAccess) return forbidden();
-
+    let access =
+      book.authorId === user.id ||
+      user.role === "ADMIN" ||
+      (book.isPublished && book.digitalPrice === 0);
+    if (!access && book.isPublished)
+      access = Boolean(
+        await prisma.order.findFirst({
+          where: {
+            userId: user.id,
+            bookId: book.id,
+            status: "PAID",
+            type: "DIGITAL",
+          },
+        }),
+      );
+    if (!access) return forbidden();
+    const format = getFormatById(book.format) ?? getFormatById("book")!,
+      workbook = book.format === "workbook",
+      sizes: Record<string, [number, number]> = { "5x8": [360, 576], "6x9": [432, 648], "8.5x11": [612, 792], a4: [595.28, 841.89] },
+      size: [number, number] = sizes[book.printSettings?.pageSize ?? ""] ?? (workbook ? sizes.a4 : sizes["6x9"]),
+      margin = book.printSettings ? parseFloat(book.printSettings.margin) * 72 : workbook ? 58 : 48,
+      fontSize = book.printSettings?.fontSize ?? 12,
+      bodyFont = book.printSettings?.font === "mono" ? "Courier" : book.printSettings?.font === "sans" || workbook ? "Helvetica" : "Times-Roman",
+      lineGap = book.printSettings ? fontSize * (book.printSettings.lineSpacing - 1) : workbook ? 6 : 3;
     const doc = new PDFDocument({
-      size: PAGE_SIZE,
-      margin: MARGIN,
+      size,
+      margin,
+      bufferPages: true,
       info: {
         Title: book.title,
-        Author: book.author?.name ?? "AI Book Studio",
-        Creator: "AI Book Studio",
+        Author: book.author.name || "Author",
+        Creator: "Book Studio",
       },
     });
-
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        doc.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
+        doc.on("data", (chunk: Buffer) =>
+          controller.enqueue(new Uint8Array(chunk)),
+        );
         doc.on("end", () => controller.close());
         doc.on("error", (e) => controller.error(e));
       },
     });
-
-    const authorName = book.author?.name ?? book.author?.email ?? "Unknown Author";
-
-    // ── Title page ─────────────────────────────────────────────
-    doc.font("Helvetica").fontSize(12);
-    doc.text("", MARGIN, 180); // spacer
-    doc.font("Helvetica-Bold").fontSize(30).fillColor("#111111");
-    doc.text(book.title, MARGIN, 220, { align: "center" });
-
-    doc.font("Helvetica").fontSize(14).fillColor("#444444");
-    doc.text(authorName, MARGIN, doc.y + 36, { align: "center" });
-
-    if (book.genre) {
-      doc.fontSize(10).fillColor("#888888");
-      doc.text(book.genre.toUpperCase(), MARGIN, doc.y + 16, {
+    const front = book.coverImages.find(
+      (c) =>
+        c.url === book.coverUrl &&
+        c.data &&
+        ["image/png", "image/jpeg"].includes(c.mimeType || ""),
+    );
+    if (front?.data) {
+      try {
+        doc.image(Buffer.from(front.data, "base64"), 0, 0, {
+          fit: size,
+          align: "center",
+          valign: "center",
+        });
+        doc.addPage();
+      } catch {
+        /* Unsupported cover bytes do not prevent manuscript export. */
+      }
+    }
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#87947b")
+      .text(format.name.toUpperCase(), margin, 95, {
         align: "center",
         characterSpacing: 2,
       });
-    }
-
-    // Decorative rule
-    const ruleY = doc.y + 40;
+    doc.moveDown(4);
     doc
-      .moveTo(PAGE_SIZE[0] / 2 - 40, ruleY)
-      .lineTo(PAGE_SIZE[0] / 2 + 40, ruleY)
-      .strokeColor("#bbbbbb")
-      .lineWidth(1)
-      .stroke();
-
-    doc.fontSize(9).fillColor("#999999");
-    doc.text("Created with AI Book Studio", MARGIN, PAGE_SIZE[1] - MARGIN - 20, {
-      align: "center",
-    });
-
-    // ── Description page (optional) ────────────────────────────
-    if (book.description?.trim()) {
-      doc.addPage({ size: PAGE_SIZE, margin: MARGIN });
-      doc.font("Helvetica-Bold").fontSize(16).fillColor("#111111");
-      doc.text("About this book", { align: "left" });
-      doc.moveDown(1);
-      doc.font("Helvetica").fontSize(11).fillColor("#333333");
-      doc.text(book.description, { align: "justify", lineGap: 2 });
+      .font("Times-Roman")
+      .fontSize(30)
+      .fillColor("#294c37")
+      .text(book.title, { align: "center" });
+    doc.moveDown(1.5);
+    doc
+      .font("Helvetica")
+      .fontSize(11)
+      .fillColor("#708563")
+      .text(book.author.name || "Author", { align: "center" });
+    if (book.description) {
+      doc.moveDown(3);
+      doc
+        .font("Times-Roman")
+        .fontSize(11)
+        .fillColor("#8b967e")
+        .text(book.description, { align: "center", lineGap: 3 });
     }
-
-    // ── Chapters ───────────────────────────────────────────────
-    book.chapters.forEach((chapter, i) => {
-      doc.addPage({ size: PAGE_SIZE, margin: MARGIN });
-
-      doc.font("Helvetica").fontSize(10).fillColor("#999999");
-      doc.text(`Chapter ${i + 1}`, { align: "center", characterSpacing: 2 });
-      doc.moveDown(0.5);
-
-      doc.font("Helvetica-Bold").fontSize(18).fillColor("#111111");
-      doc.text(chapter.title, { align: "center" });
-      doc.moveDown(1.5);
-
-      doc.font("Helvetica").fontSize(11).fillColor("#222222");
-      const paragraphs = chapter.content
-        .split(/\r?\n/)
-        .map((p) => p.trim())
-        .filter(Boolean);
-
-      if (paragraphs.length === 0) {
-        doc.text("(empty chapter)", { align: "center" });
-      } else {
-        paragraphs.forEach((p) => {
-          doc.text(p, { align: "justify", lineGap: 2, paragraphGap: 10 });
+    doc.addPage();
+    doc.font("Times-Roman").fontSize(24).fillColor("#294c37").text("Contents");
+    doc.moveDown(1.5);
+    book.chapters.forEach((c, i) => {
+      doc
+        .font("Helvetica")
+        .fontSize(11)
+        .fillColor("#5a7050")
+        .text(`${String(i + 1).padStart(2, "0")}    ${c.title}`, {
+          lineGap: 4,
+          paragraphGap: 10,
+          goTo: `section-${c.id}`,
         });
-      }
     });
-
+    for (let i = 0; i < book.chapters.length; i++) {
+      const chapter = book.chapters[i];
+      doc.addPage();
+      const label =
+        chapter.type === "FRONT_MATTER"
+          ? "FRONT MATTER"
+          : chapter.type === "BACK_MATTER"
+            ? "BACK MATTER"
+            : `${format.unit.toUpperCase()} ${String(i + 1).padStart(2, "0")}`;
+      doc
+        .font("Helvetica")
+        .fontSize(8)
+        .fillColor("#91a183")
+        .text(label, {
+          characterSpacing: 2,
+          destination: `section-${chapter.id}`,
+        });
+      doc.moveDown(1.5);
+      doc
+        .font("Times-Roman")
+        .fontSize(25)
+        .fillColor("#294c37")
+        .text(chapter.title);
+      doc.moveDown(0.8);
+      doc
+        .moveTo(margin, doc.y)
+        .lineTo(margin + 35, doc.y)
+        .strokeColor("#b8c7a9")
+        .lineWidth(0.8)
+        .stroke();
+      doc.moveDown(1.5);
+      doc
+        .font(bodyFont)
+        .fontSize(fontSize)
+        .fillColor("#435738");
+      if (!chapter.content.trim())
+        doc
+          .fontSize(11)
+          .fillColor("#9daa91")
+          .text("This section has not been written yet.");
+      else
+        chapter.content.split(/\n\s*\n/).forEach((p) => {
+          doc.text(p.trim(), {
+            align: "left",
+            lineGap,
+            paragraphGap: 12,
+          });
+          doc.moveDown(0.6);
+        });
+    }
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      doc.page.margins.bottom = 0;
+      doc
+        .font("Helvetica")
+        .fontSize(7)
+        .fillColor("#a4b396")
+        .text(book.title, margin, size[1] - 30, {
+          width: size[0] - margin * 2 - 25,
+          lineBreak: false,
+        });
+      doc.text(String(i + 1), size[0] - margin - 20, size[1] - 30, {
+        width: 20,
+        align: "right",
+        lineBreak: false,
+      });
+    }
     doc.end();
-
-    const filename = `${slugify(book.title)}.pdf`;
     return new Response(stream, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="${slugify(book.title) || "manuscript"}.pdf"`,
         "Cache-Control": "no-store",
       },
     });
-  } catch (err) {
-    return apiError(err);
+  } catch (e) {
+    return apiError(e);
   }
 }

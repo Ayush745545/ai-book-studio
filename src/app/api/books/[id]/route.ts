@@ -28,6 +28,10 @@ const patchSchema = z
       .optional(),
     genre: z.string().max(100).nullable().optional(),
     language: z.string().max(50).optional(),
+    targetPages: z.number().int().min(1).max(1000).optional(),
+    audience: z.string().max(1000).optional(),
+    writingGoal: z.string().max(4000).optional(),
+    tone: z.string().max(100).optional(),
     isPublished: z.boolean().optional(),
     price: z.number().min(0).max(10000).optional(),
     digitalPrice: z.number().min(0).max(10000).optional(),
@@ -69,6 +73,8 @@ export async function GET(_req: Request, { params }: Params) {
         author: { select: { name: true, email: true } },
         chapters: { orderBy: { order: "asc" } },
         coverImages: { orderBy: { createdAt: "desc" } },
+        printSettings: true,
+        editions: { include: { chapters: { orderBy: { order: "asc" } } } },
       },
     });
 
@@ -94,7 +100,11 @@ export async function PATCH(req: Request, { params }: Params) {
     const body = patchSchema.parse(await req.json());
 
     // Publishing flips the status to PUBLISHED as well
-    if (body.isPublished === true) body.status = "PUBLISHED";
+    if (body.isPublished === true) {
+      const written = await prisma.chapter.count({ where: { bookId: book.id, wordCount: { gt: 0 } } });
+      if (!written) return NextResponse.json({ error: "Write at least one section before publishing." }, { status: 400 });
+      body.status = "PUBLISHED";
+    }
 
     const updated = await prisma.book.update({
       where: { id: params.id },

@@ -11,6 +11,8 @@ export type AiProvider = "openai" | "openrouter";
 export interface AiGenerationOptions {
   provider?: AiProvider;
   model?: string;
+  targetWords?: number;
+  apiKey?: string;
 }
 
 // Lazy singleton — only instantiated when an AI feature is actually used,
@@ -59,7 +61,7 @@ export async function generateBookIdea(
 ): Promise<{ ideas: BookIdea[] }> {
   const provider = resolveProvider(options.provider);
   if (provider === "openrouter") {
-    return generateBookIdeaWithOpenRouter(genre, keywords, options.model);
+    return generateBookIdeaWithOpenRouter(genre, keywords, options.model, options.apiKey);
   }
 
   const res = await client().chat.completions.create({
@@ -121,6 +123,7 @@ export async function generateChapter(
   tone: string,
   options: AiGenerationOptions = {}
 ): Promise<string> {
+  const targetWords = Math.max(100, Math.min(3000, options.targetWords ?? 1200));
   const provider = resolveProvider(options.provider);
   if (provider === "openrouter") {
     return generateChapterWithOpenRouter(
@@ -128,18 +131,20 @@ export async function generateChapter(
       chapterTitle,
       outline,
       tone,
-      options.model
+      options.model,
+      targetWords,
+      options.apiKey
     );
   }
 
   const res = await client().chat.completions.create({
     model: resolveModel(provider, options.model),
     temperature: 0.85,
-    max_tokens: 3500,
+    max_tokens: Math.min(8000, Math.ceil(targetWords * 2.5)),
     messages: [
       {
         role: "system",
-        content: `You are a professional ghostwriter. You write vivid, well-paced prose of about 1200 words per chapter in a ${
+        content: `You are a professional ghostwriter. Follow the requested format and write approximately ${targetWords} words in a ${
           tone || "engaging"
         } tone. Output ONLY the chapter prose — no meta commentary, no markdown headers, no author notes. Separate paragraphs with a single blank line.`,
       },
@@ -149,7 +154,7 @@ export async function generateChapter(
 Chapter title: ${chapterTitle}
 Outline / notes: ${outline || "None provided — invent a fitting arc for this chapter."}
 
-Write the full chapter now (~1200 words).`,
+Write the full section now (~${targetWords} words).`,
       },
     ],
   });
@@ -169,7 +174,7 @@ export async function grammarCheck(
 ): Promise<{ corrected: string; changes: GrammarChange[] }> {
   const provider = resolveProvider(options.provider);
   if (provider === "openrouter") {
-    return grammarCheckWithOpenRouter(text, options.model);
+    return grammarCheckWithOpenRouter(text, options.model, options.apiKey);
   }
 
   const res = await client().chat.completions.create({

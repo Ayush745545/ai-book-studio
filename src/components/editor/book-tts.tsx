@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -72,7 +72,7 @@ export function BookTTS({ text, chapterTitle, onStateChange }: BookTTSProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [supported, setSupported] = useState(true);
 
-  const sentences = splitSentences(text);
+  const sentences = useMemo(() => splitSentences(text), [text]);
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
   const idxRef = useRef(-1);
   const stoppedRef = useRef(false);
@@ -252,7 +252,7 @@ export function BookTTS({ text, chapterTitle, onStateChange }: BookTTSProps) {
   /* ── Progress ── */
   const progress = sentences.length > 0 && currentIdx >= 0 ? ((currentIdx + 1) / sentences.length) * 100 : 0;
 
-  if (!supported) return null;
+  if (!supported) return <p className="studio-muted">This browser does not support device narration. Try a browser with speech playback or download an AI track when a provider is connected.</p>;
 
   /* ═══════════════════ JSX ═══════════════════ */
   return (
@@ -281,6 +281,7 @@ export function BookTTS({ text, chapterTitle, onStateChange }: BookTTSProps) {
         ) : (
           <button
             onClick={play}
+            disabled={sentences.length === 0}
             className="p-2 rounded-full bg-indigo-500/80 text-white hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/30"
             title={isPaused ? "Resume" : "Play"}
           >

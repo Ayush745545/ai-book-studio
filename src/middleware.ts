@@ -1,13 +1,16 @@
-import { withAuth } from "next-auth/middleware";
+import { getToken } from "next-auth/jwt";
+import { NextResponse, type NextRequest } from "next/server";
 
-/**
- * Protects the app routes — unauthenticated visitors are redirected to /login
- * with a callbackUrl so they land back where they were going after sign-in.
- */
-export default withAuth({
-  pages: { signIn: "/login" },
-});
-
-export const config = {
-  matcher: ["/dashboard/:path*", "/books/:path*"],
-};
+export async function middleware(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (token) return NextResponse.next();
+  // Next's dev server can normalize 127.0.0.1 to localhost internally. Keep
+  // the browser's actual host so its account cookies and callback stay together.
+  const origin = new URL(req.url);
+  const host = req.headers.get("host");
+  if (host) origin.host = host;
+  const login = new URL("/login", origin);
+  login.searchParams.set("callbackUrl", req.nextUrl.pathname + req.nextUrl.search);
+  return NextResponse.redirect(login);
+}
+export const config = { matcher: ["/dashboard/:path*", "/books/:path*"] };
