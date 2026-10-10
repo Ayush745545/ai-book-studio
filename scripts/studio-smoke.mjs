@@ -282,7 +282,7 @@ try {
   const invalidZone = await context.request.get(`${base}/api/activity?timeZone=invalid-zone`);
   check(invalidZone.status() === 400, "Activity rejects invalid time zones");
   await page.goto(`${base}/dashboard`);
-  await page.getByRole("heading", { name: "One day. One edit. One step closer." }).waitFor();
+  await page.getByRole("heading", { name: "Your writing activity" }).waitFor();
   await page.getByRole("button", { name: "Refresh writing activity" }).waitFor({state:"visible"});
   await expect(page.getByRole("button", { name: "Refresh writing activity" })).toBeEnabled();
   check(await page.locator(".studio-activity-day").count() >= 365, "Calendar displays a complete contribution year");

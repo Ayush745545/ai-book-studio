@@ -50,9 +50,7 @@ export async function DELETE(_req: Request, { params }: Params) {
     if (!book) return notFound("Book");
     if (book.authorId !== user.id && user.role !== "ADMIN") return forbidden();
 
-    // Delete cover image records if they're local
-    await prisma.coverImage.deleteMany({ where: { bookId: book.id } });
-
+    // Related chapters, versions, and covers cascade in this atomic deletion.
     await prisma.book.delete({ where: { id: book.id } });
 
     return NextResponse.json({ ok: true });

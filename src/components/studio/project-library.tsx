@@ -1,9 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/client";
+import { useDialog } from "./use-dialog";
 import { getFormatById, BOOK_FORMATS } from "@/lib/book-formats";
 import { FormatIcon } from "./format-icon";
-import { ArrowRight, BookOpen } from "@/components/icons";
+import { ArrowRight, BookOpen, Trash, Spinner } from "@/components/icons";
 import type { SerializedBook } from "@/types";
 export function ProjectLibrary({
   books,
@@ -14,13 +17,33 @@ export function ProjectLibrary({
 }) {
   const [filter, setFilter] = useState("all"),
     [search, setSearch] = useState("");
-  const filtered = books.filter(
+  const router = useRouter();
+  const [pendingDelete, setPendingDelete] = useState<SerializedBook | null>(null);
+  const [deleting, setDeleting] = useState(false), [error, setError] = useState("");
+  const [removed, setRemoved] = useState<string[]>([]), [notice, setNotice] = useState("");
+  const dialog = useRef<HTMLDivElement>(null);
+  useDialog(!!pendingDelete, dialog, () => { if (!deleting) setPendingDelete(null); });
+  async function deleteProject() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true); setError("");
+    try {
+      await apiFetch(`/api/books/${pendingDelete.id}`, { method: "DELETE" });
+      setRemoved(ids => [...ids, pendingDelete.id]);
+      setNotice(`“${pendingDelete.title}” was deleted.`);
+      setPendingDelete(null);
+      router.refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not delete this project. Try again."); }
+    finally { setDeleting(false); }
+  }
+  const visibleBooks = books.filter(book => !removed.includes(book.id));
+  const filtered = visibleBooks.filter(
     (b) =>
       (filter === "all" || b.format === filter) &&
       b.title.toLowerCase().includes(search.toLowerCase()),
   );
   return (
     <>
+      {notice && <p className="studio-library-notice" role="status">{notice}</p>}
       <div className="studio-library-filters">
         <div>
           <button
@@ -58,12 +81,12 @@ export function ProjectLibrary({
                 ),
               );
             return (
+              <article key={book.id} className="studio-project-card">
               <Link
-                key={book.id}
                 href={
                   purchased ? `/store/${book.id}/read` : `/books/${book.id}`
                 }
-                className="studio-project-card"
+                className="studio-project-link"
               >
                 <div className={`studio-project-cover ${f.color}`}>
                   {book.coverUrl ? (
@@ -104,6 +127,8 @@ export function ProjectLibrary({
                   )}
                 </div>
               </Link>
+              {!purchased && <button className="studio-project-delete" aria-label={`Delete ${book.title}`} title="Delete project" onClick={() => { setPendingDelete(book); setError(""); }}><Trash /></button>}
+              </article>
             );
           })}
         </div>
@@ -111,14 +136,14 @@ export function ProjectLibrary({
         <div className="studio-empty studio-panel">
           <BookOpen className="h-10 w-10" />
           <h2>
-            {books.length
+            {visibleBooks.length
               ? "No projects match your search."
               : purchased
                 ? "Your bookshelf is waiting."
                 : "Your first page is waiting."}
           </h2>
           <p>
-            {books.length
+            {visibleBooks.length
               ? "Try another title or format."
               : purchased
                 ? "Discover books from other authors in the bookstore."
@@ -133,6 +158,18 @@ export function ProjectLibrary({
           </Link>
         </div>
       )}
+      {pendingDelete && <div className="studio-delete-backdrop" onClick={event => { if (event.target === event.currentTarget && !deleting) setPendingDelete(null); }}>
+        <div ref={dialog} className="studio-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-project-title" aria-describedby="delete-project-description" tabIndex={-1}>
+          <span className="studio-delete-symbol"><Trash /></span>
+          <h2 id="delete-project-title">Delete this project?</h2>
+          <p id="delete-project-description">“{pendingDelete.title}” and its chapters, saved versions, and cover records will be permanently deleted. This cannot be undone. Your writing activity stays in your calendar.</p>
+          {error && <p className="studio-delete-error" role="alert">{error}</p>}
+          <div className="studio-delete-actions">
+            <button className="studio-button" disabled={deleting} onClick={() => setPendingDelete(null)}>Keep project</button>
+            <button className="studio-button studio-delete-confirm" disabled={deleting} onClick={() => void deleteProject()}>{deleting ? <><Spinner />Deleting…</> : "Delete project"}</button>
+          </div>
+        </div>
+      </div>}
     </>
   );
 }

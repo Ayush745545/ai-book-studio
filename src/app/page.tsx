@@ -7,10 +7,12 @@ import {
   Sparkles,
 } from "@/components/icons";
 import { FormatGrid } from "@/components/studio/format-grid";
+import { HomeMotion, HomeSections } from "@/components/studio/home-experience";
 export default function LandingPage() {
   return (
     <div className="studio-shell studio-home">
       <div className="studio-home-inner">
+        <HomeMotion>
         <section className="studio-hero">
           <div>
             <span className="studio-eyebrow">
@@ -41,6 +43,8 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="studio-hero-art" aria-hidden="true">
+            <div className="studio-hero-orbit" /><div className="studio-hero-orbit second" />
+            <div className="studio-floating-page"><span>CHAPTER ONE</span><i /><i /><i /><i /></div>
             <div className="studio-book-object">
               <span>
                 THE BOOK
@@ -64,7 +68,7 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-        <section id="formats" className="studio-format-section">
+        <section id="formats" className="studio-format-section" data-reveal>
           <div className="studio-section-heading">
             <div>
               <span className="studio-eyebrow">
@@ -83,7 +87,7 @@ export default function LandingPage() {
             features require a configured provider.
           </p>
         </section>
-        <section className="studio-process">
+        <section className="studio-process" data-reveal>
           <div>
             <span>01</span>
             <BookOpen />
@@ -111,6 +115,8 @@ export default function LandingPage() {
             </p>
           </div>
         </section>
+        <HomeSections />
+        </HomeMotion>
       </div>
     </div>
   );
